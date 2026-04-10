@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -22,32 +22,13 @@ export type TacheFormProps = {
 }
 
 export function TacheForm(props: TacheFormProps) {
-  const [titre, setTitre] = useState('')
-  const [chantierId, setChantierId] = useState('')
-  const [statut, setStatut] = useState('')
-  const [responsable, setResponsable] = useState('')
-  const [dateEcheance, setDateEcheance] = useState('')
+  const [titre, setTitre] = useState(() => props.editingTache?.titre ?? '')
+  const [chantierId, setChantierId] = useState(() => props.editingTache?.chantier_id ?? '')
+  const [statut, setStatut] = useState(() => props.editingTache?.statut ?? '')
+  const [responsable, setResponsable] = useState(() => props.editingTache?.responsable ?? '')
+  const [dateEcheance, setDateEcheance] = useState(() => props.editingTache?.date_echeance ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!props.open) return
-    const ed = props.editingTache
-    if (ed) {
-      setTitre(ed.titre ?? '')
-      setChantierId(ed.chantier_id ?? '')
-      setStatut(ed.statut ?? '')
-      setResponsable(ed.responsable ?? '')
-      setDateEcheance(ed.date_echeance ?? '')
-    } else {
-      setTitre('')
-      setChantierId('')
-      setStatut('')
-      setResponsable('')
-      setDateEcheance('')
-    }
-    setFormError(null)
-  }, [props.open, props.editingTache])
 
   if (!props.open) return null
 

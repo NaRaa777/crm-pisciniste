@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -18,29 +18,12 @@ type ClientFormProps = {
 }
 
 export function ClientForm(props: ClientFormProps) {
-  const [nom, setNom] = useState('')
-  const [entreprise, setEntreprise] = useState('')
-  const [email, setEmail] = useState('')
-  const [telephone, setTelephone] = useState('')
+  const [nom, setNom] = useState(() => props.editingClient?.nom ?? '')
+  const [entreprise, setEntreprise] = useState(() => props.editingClient?.entreprise ?? '')
+  const [email, setEmail] = useState(() => props.editingClient?.email ?? '')
+  const [telephone, setTelephone] = useState(() => props.editingClient?.telephone ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!props.open) return
-    const ed = props.editingClient
-    if (ed) {
-      setNom(ed.nom ?? '')
-      setEntreprise(ed.entreprise ?? '')
-      setEmail(ed.email ?? '')
-      setTelephone(ed.telephone ?? '')
-    } else {
-      setNom('')
-      setEntreprise('')
-      setEmail('')
-      setTelephone('')
-    }
-    setFormError(null)
-  }, [props.open, props.editingClient])
 
   if (!props.open) return null
 

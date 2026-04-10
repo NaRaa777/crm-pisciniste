@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -23,35 +23,14 @@ export type ChantierFormProps = {
 }
 
 export function ChantierForm(props: ChantierFormProps) {
-  const [titre, setTitre] = useState('')
-  const [clientId, setClientId] = useState('')
-  const [statut, setStatut] = useState('')
-  const [responsable, setResponsable] = useState('')
-  const [dateDebut, setDateDebut] = useState('')
-  const [dateFin, setDateFin] = useState('')
+  const [titre, setTitre] = useState(() => props.editingChantier?.titre ?? '')
+  const [clientId, setClientId] = useState(() => props.editingChantier?.client_id ?? '')
+  const [statut, setStatut] = useState(() => props.editingChantier?.statut ?? '')
+  const [responsable, setResponsable] = useState(() => props.editingChantier?.responsable ?? '')
+  const [dateDebut, setDateDebut] = useState(() => props.editingChantier?.date_debut ?? '')
+  const [dateFin, setDateFin] = useState(() => props.editingChantier?.date_fin ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!props.open) return
-    const ed = props.editingChantier
-    if (ed) {
-      setTitre(ed.titre ?? '')
-      setClientId(ed.client_id ?? '')
-      setStatut(ed.statut ?? '')
-      setResponsable(ed.responsable ?? '')
-      setDateDebut(ed.date_debut ?? '')
-      setDateFin(ed.date_fin ?? '')
-    } else {
-      setTitre('')
-      setClientId('')
-      setStatut('')
-      setResponsable('')
-      setDateDebut('')
-      setDateFin('')
-    }
-    setFormError(null)
-  }, [props.open, props.editingChantier])
 
   if (!props.open) return null
 

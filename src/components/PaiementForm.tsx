@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -24,32 +24,17 @@ export type PaiementFormProps = {
 }
 
 export function PaiementForm(props: PaiementFormProps) {
-  const [clientId, setClientId] = useState('')
-  const [chantierId, setChantierId] = useState('')
-  const [montant, setMontant] = useState('')
-  const [statut, setStatut] = useState('')
-  const [datePaiement, setDatePaiement] = useState('')
+  const [clientId, setClientId] = useState(() => props.editingPaiement?.client_id ?? '')
+  const [chantierId, setChantierId] = useState(() => props.editingPaiement?.chantier_id ?? '')
+  const [montant, setMontant] = useState(() =>
+    props.editingPaiement && Number.isFinite(props.editingPaiement.montant)
+      ? String(props.editingPaiement.montant)
+      : '',
+  )
+  const [statut, setStatut] = useState(() => props.editingPaiement?.statut ?? '')
+  const [datePaiement, setDatePaiement] = useState(() => props.editingPaiement?.date_paiement ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!props.open) return
-    const ed = props.editingPaiement
-    if (ed) {
-      setClientId(ed.client_id ?? '')
-      setChantierId(ed.chantier_id ?? '')
-      setMontant(Number.isFinite(ed.montant) ? String(ed.montant) : '')
-      setStatut(ed.statut ?? '')
-      setDatePaiement(ed.date_paiement ?? '')
-    } else {
-      setClientId('')
-      setChantierId('')
-      setMontant('')
-      setStatut('')
-      setDatePaiement('')
-    }
-    setFormError(null)
-  }, [props.open, props.editingPaiement])
 
   if (!props.open) return null
 

@@ -3,6 +3,7 @@
  * `supabase.from('devis').select('*, clients(nom), chantiers(titre)').order('date_emission', { ascending: false })`
  */
 import { useState } from 'react'
+import { exportDevisToPdf } from '../lib/pdfExport'
 import { supabase } from '../lib/supabase'
 import type { DevisEditPayload } from './DevisForm'
 
@@ -173,6 +174,14 @@ export function DevisPage(props: {
                     <td className="px-3 py-3 align-top text-text-muted">{statutLabel(row.statut)}</td>
                     <td className="px-3 py-3 align-top">
                       <div className="flex flex-wrap justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => exportDevisToPdf(row)}
+                          disabled={busy}
+                          className="rounded-[8px] border border-primary/35 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
+                        >
+                          Exporter en PDF
+                        </button>
                         <button
                           type="button"
                           onClick={() => editPayload && props.onEditDevis(editPayload)}

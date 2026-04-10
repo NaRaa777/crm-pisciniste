@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import type { ThemeMode } from './types'
 
@@ -12,14 +12,9 @@ export type ParametresPageProps = {
 }
 
 export function ParametresPage(props: ParametresPageProps) {
-  const [name, setName] = useState(props.initialName)
-  const [email, setEmail] = useState(props.initialEmail)
+  const [name, setName] = useState(() => props.initialName)
+  const [email, setEmail] = useState(() => props.initialEmail)
   const [saved, setSaved] = useState(false)
-
-  useEffect(() => {
-    setName(props.initialName)
-    setEmail(props.initialEmail)
-  }, [props.initialName, props.initialEmail])
 
   function handleSave(e: FormEvent) {
     e.preventDefault()

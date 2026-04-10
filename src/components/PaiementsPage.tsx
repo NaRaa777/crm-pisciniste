@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { exportPaiementsToExcel } from '../lib/excelExport'
 import { supabase } from '../lib/supabase'
 import type { PaiementEditPayload } from './PaiementForm'
 
@@ -98,13 +99,23 @@ export function PaiementsPage(props: PaiementsPageProps) {
           <h1 className="text-[20px] font-semibold tracking-tight">Paiements</h1>
           <p className="mt-1 text-sm text-text-muted">Encaissements liés aux chantiers (table Supabase).</p>
         </div>
-        <button
-          type="button"
-          onClick={props.onAddPaiement}
-          className="h-10 shrink-0 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98]"
-        >
-          Ajouter un paiement
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => exportPaiementsToExcel(props.paiements)}
+            disabled={props.loading || props.paiements.length === 0}
+            className="h-10 shrink-0 rounded-[10px] border border-primary/35 bg-primary/10 px-4 text-sm font-semibold text-text outline-none transition duration-200 ease-out hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98]"
+          >
+            Exporter Excel
+          </button>
+          <button
+            type="button"
+            onClick={props.onAddPaiement}
+            className="h-10 shrink-0 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98]"
+          >
+            Ajouter un paiement
+          </button>
+        </div>
       </div>
 
       <div className="mt-5 overflow-x-auto rounded-[12px] border border-border">

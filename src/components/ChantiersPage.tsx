@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { exportChantiersToExcel } from '../lib/excelExport'
 import { supabase } from '../lib/supabase'
 import type { ChantierEditPayload } from './ChantierForm'
 
@@ -92,13 +93,23 @@ export function ChantiersPage(props: ChantiersPageProps) {
           <h1 className="text-[20px] font-semibold tracking-tight">Chantiers</h1>
           <p className="mt-1 text-sm text-text-muted">Projets et chantiers (table Supabase).</p>
         </div>
-        <button
-          type="button"
-          onClick={props.onAddChantier}
-          className="h-10 shrink-0 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98]"
-        >
-          Ajouter un chantier
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => exportChantiersToExcel(props.chantiers)}
+            disabled={props.loading || props.chantiers.length === 0}
+            className="h-10 shrink-0 rounded-[10px] border border-primary/35 bg-primary/10 px-4 text-sm font-semibold text-text outline-none transition duration-200 ease-out hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98]"
+          >
+            Exporter Excel
+          </button>
+          <button
+            type="button"
+            onClick={props.onAddChantier}
+            className="h-10 shrink-0 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98]"
+          >
+            Ajouter un chantier
+          </button>
+        </div>
       </div>
 
       <div className="mt-5 overflow-x-auto rounded-[12px] border border-border">

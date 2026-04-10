@@ -28,7 +28,16 @@ import { SiteTable } from './components/SiteTable'
 import { TopHeader } from './components/TopHeader'
 import type { AnalyticsPeriod, PaymentStatus, PlanningFilter, PlanningStatus, Priority, ThemeMode } from './components/types'
 import type { PlanningTask, SiteRow, TransactionRow } from './components/mockData'
-import { BarChart3, CalendarDays, CreditCard, Hammer, LayoutDashboard, X } from 'lucide-react'
+import {
+  BarChart3,
+  CalendarDays,
+  Contact,
+  CreditCard,
+  FileSpreadsheet,
+  Hammer,
+  LayoutDashboard,
+  X,
+} from 'lucide-react'
 import {
   addDays,
   firstDayOfMonth,
@@ -45,6 +54,32 @@ import { useChantiers, useClients, useDevis, usePaiements, useTaches } from './l
 
 function setHtmlTheme(theme: ThemeMode) {
   document.documentElement.dataset.theme = theme
+}
+
+function rowStr(v: unknown, fallback: string): string {
+  if (v == null || v === '') return fallback
+  return String(v)
+}
+
+function tacheClientLabel(t: Record<string, unknown>): string {
+  const ch = t.chantiers as Record<string, unknown> | undefined
+  const nested = ch?.clients as Record<string, unknown> | undefined
+  const client = t.client as Record<string, unknown> | undefined
+  return rowStr(nested?.nom ?? client?.nom ?? t.client_nom, 'Client inconnu')
+}
+
+function chantierSiteClientName(c: Record<string, unknown>): string {
+  const cl = c.clients as Record<string, unknown> | undefined
+  return rowStr(cl?.nom ?? c.client_nom, 'Client inconnu')
+}
+
+function paiementLabelParts(p: Record<string, unknown>): { client: string; site: string } {
+  const cl = p.clients as Record<string, unknown> | undefined
+  const ch = p.chantiers as Record<string, unknown> | undefined
+  return {
+    client: rowStr(cl?.nom ?? p.client_nom, 'Client'),
+    site: rowStr(ch?.titre ?? p.chantier_titre, 'Projet'),
+  }
 }
 
 function AuthenticatedApp() {
@@ -114,10 +149,10 @@ function AuthenticatedApp() {
       return 'planned'
     }
 
-    return (taches ?? []).map((t: any, idx: number) => ({
+    return (taches ?? []).map((t: Record<string, unknown>, idx: number) => ({
       id: String(t.id ?? t.uuid ?? `task-${idx + 1}`),
       date: String(t.date ?? t.deadline ?? t.created_at ?? new Date().toISOString().slice(0, 10)).slice(0, 10),
-      client: String(t.chantiers?.clients?.nom ?? t.client?.nom ?? t.client_nom ?? 'Client inconnu'),
+      client: tacheClientLabel(t),
       title: String(t.titre ?? t.title ?? t.nom ?? 'Tâche'),
       status: mapStatus(t.statut ?? t.status),
       owner: String(t.responsable ?? t.owner ?? connectedUser.name),
@@ -133,10 +168,10 @@ function AuthenticatedApp() {
       return 'medium'
     }
 
-    return (chantiers ?? []).map((c: any, idx: number) => ({
+    return (chantiers ?? []).map((c: Record<string, unknown>, idx: number) => ({
       id: String(c.id ?? c.uuid ?? `site-${idx + 1}`),
       name: String(c.titre ?? c.nom ?? c.title ?? `Chantier ${idx + 1}`),
-      client: String(c.clients?.nom ?? c.client?.nom ?? c.client_nom ?? 'Client inconnu'),
+      client: chantierSiteClientName(c),
       progress: Number.isFinite(Number(c.avancement)) ? Number(c.avancement) : 0,
       dueDate: String(c.echeance ?? c.due_date ?? c.created_at ?? new Date().toISOString().slice(0, 10)).slice(0, 10),
       priority: mapPriority(c.priorite ?? c.priority),
@@ -152,9 +187,8 @@ function AuthenticatedApp() {
       return 'unpaid'
     }
 
-    return (paiements ?? []).map((p: any, idx: number) => {
-      const clientName = String(p.clients?.nom ?? p.client_nom ?? 'Client')
-      const siteName = String(p.chantiers?.titre ?? p.chantier_titre ?? 'Projet')
+    return (paiements ?? []).map((p: Record<string, unknown>, idx: number) => {
+      const { client: clientName, site: siteName } = paiementLabelParts(p)
       return {
         id: String(p.id ?? p.reference ?? p.facture_id ?? `pay-${idx + 1}`),
         label: String(p.label ?? `Paiement — ${clientName} (${siteName})`),
@@ -443,6 +477,7 @@ function AuthenticatedApp() {
               />
             ) : navKey === 'settings' ? (
               <ParametresPage
+                key={`${userProfile.name}\u0000${userProfile.email}`}
                 initialName={userProfile.name}
                 initialEmail={userProfile.email}
                 theme={theme}
@@ -514,22 +549,60 @@ function AuthenticatedApp() {
             className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-surface/85 backdrop-blur-md lg:hidden"
             aria-label="Navigation mobile"
           >
-            <div className="mx-auto grid max-w-[1440px] grid-cols-5 px-2 py-2">
-              <MobileTab icon={LayoutDashboard} label="Accueil" active />
-              <MobileTab icon={CalendarDays} label="Planning" />
-              <MobileTab icon={Hammer} label="Chantiers" />
-              <MobileTab icon={CreditCard} label="Paiements" />
-              <MobileTab icon={BarChart3} label="Stats" />
+            <div className="mx-auto flex max-w-[1440px] gap-1 overflow-x-auto overscroll-x-contain px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <MobileTab
+                icon={LayoutDashboard}
+                label="Accueil"
+                active={navKey === 'dashboard'}
+                onClick={() => setNavKey('dashboard')}
+              />
+              <MobileTab
+                icon={CalendarDays}
+                label="Planning"
+                active={navKey === 'planning'}
+                onClick={() => setNavKey('planning')}
+              />
+              <MobileTab
+                icon={Hammer}
+                label="Chantiers"
+                active={navKey === 'sites'}
+                onClick={() => setNavKey('sites')}
+              />
+              <MobileTab
+                icon={CreditCard}
+                label="Paiements"
+                active={navKey === 'payments'}
+                onClick={() => setNavKey('payments')}
+              />
+              <MobileTab
+                icon={Contact}
+                label="Clients"
+                active={navKey === 'clients'}
+                onClick={() => setNavKey('clients')}
+              />
+              <MobileTab
+                icon={FileSpreadsheet}
+                label="Devis"
+                active={navKey === 'devis'}
+                onClick={() => setNavKey('devis')}
+              />
+              <MobileTab
+                icon={BarChart3}
+                label="Analytics"
+                active={navKey === 'analytics'}
+                onClick={() => setNavKey('analytics')}
+              />
             </div>
           </nav>
 
-          <div className="h-16 lg:hidden" />
+          <div className="h-[4.5rem] lg:hidden" />
         </div>
       </div>
 
       <PlanningDetailDrawer task={selectedTask} onClose={() => setSelectedTask(null)} />
 
       <ClientForm
+        key={clientFormOpen ? (clientBeingEdited?.id ?? 'new') : 'closed'}
         open={clientFormOpen}
         editingClient={clientBeingEdited}
         onClose={() => {
@@ -540,6 +613,7 @@ function AuthenticatedApp() {
       />
 
       <ChantierForm
+        key={chantierFormOpen ? (chantierBeingEdited?.id ?? 'new') : 'closed'}
         open={chantierFormOpen}
         editingChantier={chantierBeingEdited}
         clients={clientOptions}
@@ -551,6 +625,7 @@ function AuthenticatedApp() {
       />
 
       <PaiementForm
+        key={paiementFormOpen ? (paiementBeingEdited?.id ?? 'new') : 'closed'}
         open={paiementFormOpen}
         editingPaiement={paiementBeingEdited}
         clients={clientOptions}
@@ -563,6 +638,7 @@ function AuthenticatedApp() {
       />
 
       <TacheForm
+        key={tacheFormOpen ? (tacheBeingEdited?.id ?? 'new') : 'closed'}
         open={tacheFormOpen}
         editingTache={tacheBeingEdited}
         chantiers={chantierOptions}
@@ -574,6 +650,7 @@ function AuthenticatedApp() {
       />
 
       <DevisForm
+        key={devisFormOpen ? (devisBeingEdited?.id ?? 'new') : 'closed'}
         open={devisFormOpen}
         editingDevis={devisBeingEdited}
         onClose={() => {
@@ -661,19 +738,22 @@ function MobileTab(props: {
   icon: ComponentType<{ className?: string; strokeWidth?: number }>
   label: string
   active?: boolean
+  onClick?: () => void
 }) {
   const Icon = props.icon
   return (
     <button
       type="button"
+      onClick={props.onClick}
+      aria-current={props.active ? 'page' : undefined}
       className={[
-        'flex flex-col items-center justify-center gap-1 rounded-[12px] px-2 py-2 text-[11px] font-semibold outline-none transition',
+        'flex min-w-[4.25rem] shrink-0 flex-col items-center justify-center gap-1 rounded-[12px] px-2 py-2 text-[11px] font-semibold outline-none transition',
         'focus-visible:ring-2 focus-visible:ring-accent/60',
         props.active ? 'text-primary' : 'text-text-muted hover:text-text',
       ].join(' ')}
     >
       <Icon className="h-5 w-5" strokeWidth={1.75} />
-      <span className="truncate">{props.label}</span>
+      <span className="max-w-[4.25rem] truncate text-center">{props.label}</span>
     </button>
   )
 }

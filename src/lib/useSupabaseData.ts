@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 
 export function useClients() {
-  const [clients, setClients] = useState<any[]>([])
+  const [clients, setClients] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchClients = useCallback((silent = false) => {
@@ -12,20 +12,20 @@ export function useClients() {
       .select('*')
       .then(({ data, error }) => {
         if (error) console.error(error)
-        else setClients(data || [])
+        else setClients((data as Record<string, unknown>[]) || [])
         if (!silent) setLoading(false)
       })
   }, [])
 
   useEffect(() => {
-    fetchClients(false)
+    queueMicrotask(() => fetchClients(false))
   }, [fetchClients])
 
   return { clients, loading, refetch: () => fetchClients(true) }
 }
 
 export function useChantiers() {
-  const [chantiers, setChantiers] = useState<any[]>([])
+  const [chantiers, setChantiers] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchChantiers = useCallback((silent = false) => {
@@ -35,20 +35,20 @@ export function useChantiers() {
       .select('*, clients(nom)')
       .then(({ data, error }) => {
         if (error) console.error(error)
-        else setChantiers(data || [])
+        else setChantiers((data as Record<string, unknown>[]) || [])
         if (!silent) setLoading(false)
       })
   }, [])
 
   useEffect(() => {
-    fetchChantiers(false)
+    queueMicrotask(() => fetchChantiers(false))
   }, [fetchChantiers])
 
   return { chantiers, loading, refetch: () => fetchChantiers(true) }
 }
 
 export function usePaiements() {
-  const [paiements, setPaiements] = useState<any[]>([])
+  const [paiements, setPaiements] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchPaiements = useCallback((silent = false) => {
@@ -58,20 +58,20 @@ export function usePaiements() {
       .select('*, clients(nom), chantiers(titre)')
       .then(({ data, error }) => {
         if (error) console.error(error)
-        else setPaiements(data || [])
+        else setPaiements((data as Record<string, unknown>[]) || [])
         if (!silent) setLoading(false)
       })
   }, [])
 
   useEffect(() => {
-    fetchPaiements(false)
+    queueMicrotask(() => fetchPaiements(false))
   }, [fetchPaiements])
 
   return { paiements, loading, refetch: () => fetchPaiements(true) }
 }
 
 export function useTaches() {
-  const [taches, setTaches] = useState<any[]>([])
+  const [taches, setTaches] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchTaches = useCallback((silent = false) => {
@@ -81,20 +81,20 @@ export function useTaches() {
       .select('*, chantiers(titre, clients(nom))')
       .then(({ data, error }) => {
         if (error) console.error(error)
-        else setTaches(data || [])
+        else setTaches((data as Record<string, unknown>[]) || [])
         if (!silent) setLoading(false)
       })
   }, [])
 
   useEffect(() => {
-    fetchTaches(false)
+    queueMicrotask(() => fetchTaches(false))
   }, [fetchTaches])
 
   return { taches, loading, refetch: () => fetchTaches(true) }
 }
 
 export function useDevis() {
-  const [devis, setDevis] = useState<any[]>([])
+  const [devis, setDevis] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchDevis = useCallback((silent = false) => {
@@ -105,13 +105,13 @@ export function useDevis() {
       .order('date_emission', { ascending: false })
       .then(({ data, error }) => {
         if (error) console.error(error)
-        else setDevis(data || [])
+        else setDevis((data as Record<string, unknown>[]) || [])
         if (!silent) setLoading(false)
       })
   }, [])
 
   useEffect(() => {
-    fetchDevis(false)
+    queueMicrotask(() => fetchDevis(false))
   }, [fetchDevis])
 
   return { devis, loading, refetch: () => fetchDevis(true) }

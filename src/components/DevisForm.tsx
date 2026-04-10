@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -52,67 +52,71 @@ function normalizeStatut(raw: unknown): string {
   return 'brouillon'
 }
 
+type DevisFields = {
+  clientId: string
+  chantierId: string
+  description: string
+  montantHt: string
+  tvaPct: number
+  dateEmission: string
+  statut: string
+}
+
+function initialDevisFields(props: DevisFormProps): DevisFields {
+  const ed = props.editingDevis
+  if (!ed) {
+    return {
+      clientId: '',
+      chantierId: '',
+      description: '',
+      montantHt: '',
+      tvaPct: 20,
+      dateEmission: new Date().toISOString().slice(0, 10),
+      statut: 'brouillon',
+    }
+  }
+  const clientId = ed.client_id
+  let chantierId = ed.chantier_id ?? ''
+  if (chantierId && !props.chantiers.some((c) => c.id === chantierId && c.client_id === clientId)) {
+    chantierId = ''
+  }
+  const tva = Number(ed.tva)
+  return {
+    clientId,
+    chantierId,
+    description: ed.description ?? '',
+    montantHt: String(ed.montant_ht ?? ''),
+    tvaPct: tva === 0 || tva === 10 || tva === 20 ? tva : 20,
+    dateEmission:
+      String(ed.date_emission ?? '').slice(0, 10) || new Date().toISOString().slice(0, 10),
+    statut: normalizeStatut(ed.statut),
+  }
+}
+
 export function DevisForm(props: DevisFormProps) {
-  const [clientId, setClientId] = useState('')
-  const [chantierId, setChantierId] = useState('')
-  const [description, setDescription] = useState('')
-  const [montantHt, setMontantHt] = useState<string>('')
-  const [tvaPct, setTvaPct] = useState<number>(20)
-  const [dateEmission, setDateEmission] = useState(() => new Date().toISOString().slice(0, 10))
-  const [statut, setStatut] = useState('brouillon')
+  const [f, setF] = useState(() => initialDevisFields(props))
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   const isEdit = Boolean(props.editingDevis)
 
   const htNum = useMemo(() => {
-    const n = Number(String(montantHt).replace(',', '.'))
+    const n = Number(String(f.montantHt).replace(',', '.'))
     return Number.isFinite(n) ? n : 0
-  }, [montantHt])
+  }, [f.montantHt])
 
-  const montantTtc = useMemo(() => calcTtc(htNum, tvaPct), [htNum, tvaPct])
+  const montantTtc = useMemo(() => calcTtc(htNum, f.tvaPct), [htNum, f.tvaPct])
 
   const chantiersFiltres = useMemo(() => {
-    if (!clientId) return []
-    return props.chantiers.filter((c) => c.client_id === clientId)
-  }, [props.chantiers, clientId])
-
-  useEffect(() => {
-    if (!props.open) return
-    const ed = props.editingDevis
-    if (ed) {
-      setClientId(ed.client_id)
-      setChantierId(ed.chantier_id ?? '')
-      setDescription(ed.description ?? '')
-      setMontantHt(String(ed.montant_ht ?? ''))
-      setTvaPct(
-        Number(ed.tva) === 0 || Number(ed.tva) === 10 || Number(ed.tva) === 20 ? Number(ed.tva) : 20,
-      )
-      setDateEmission(String(ed.date_emission ?? '').slice(0, 10) || new Date().toISOString().slice(0, 10))
-      setStatut(normalizeStatut(ed.statut))
-    } else {
-      setClientId('')
-      setChantierId('')
-      setDescription('')
-      setMontantHt('')
-      setTvaPct(20)
-      setDateEmission(new Date().toISOString().slice(0, 10))
-      setStatut('brouillon')
-    }
-    setFormError(null)
-  }, [props.open, props.editingDevis])
-
-  useEffect(() => {
-    if (!chantierId) return
-    const ok = chantiersFiltres.some((c) => c.id === chantierId)
-    if (!ok) setChantierId('')
-  }, [chantiersFiltres, chantierId])
+    if (!f.clientId) return []
+    return props.chantiers.filter((c) => c.client_id === f.clientId)
+  }, [props.chantiers, f.clientId])
 
   if (!props.open) return null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!clientId.trim()) {
+    if (!f.clientId.trim()) {
       setFormError('Sélectionne un client.')
       return
     }
@@ -125,14 +129,14 @@ export function DevisForm(props: DevisFormProps) {
 
     /** Colonnes table `devis` : client_id, chantier_id, description, montant_ht, tva, montant_ttc, date_emission, statut */
     const row = {
-      client_id: clientId.trim(),
-      chantier_id: chantierId.trim() || null,
-      description: description.trim(),
+      client_id: f.clientId.trim(),
+      chantier_id: f.chantierId.trim() || null,
+      description: f.description.trim(),
       montant_ht: htNum,
-      tva: tvaPct,
+      tva: f.tvaPct,
       montant_ttc: montantTtc,
-      date_emission: dateEmission.trim() || new Date().toISOString().slice(0, 10),
-      statut: normalizeStatut(statut),
+      date_emission: f.dateEmission.trim() || new Date().toISOString().slice(0, 10),
+      statut: normalizeStatut(f.statut),
     }
 
     const { error } = isEdit
@@ -191,10 +195,10 @@ export function DevisForm(props: DevisFormProps) {
             <select
               id="devis-client"
               required
-              value={clientId}
+              value={f.clientId}
               onChange={(e) => {
-                setClientId(e.target.value)
-                setChantierId('')
+                const v = e.target.value
+                setF((prev) => ({ ...prev, clientId: v, chantierId: '' }))
               }}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2"
             >
@@ -213,13 +217,13 @@ export function DevisForm(props: DevisFormProps) {
             </label>
             <select
               id="devis-chantier"
-              value={chantierId}
-              onChange={(e) => setChantierId(e.target.value)}
-              disabled={!clientId || chantiersFiltres.length === 0}
+              value={f.chantierId}
+              onChange={(e) => setF((prev) => ({ ...prev, chantierId: e.target.value }))}
+              disabled={!f.clientId || chantiersFiltres.length === 0}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="">
-                {!clientId
+                {!f.clientId
                   ? '— Sélectionne d’abord un client —'
                   : chantiersFiltres.length === 0
                     ? '— Aucun chantier pour ce client —'
@@ -239,8 +243,8 @@ export function DevisForm(props: DevisFormProps) {
             </label>
             <textarea
               id="devis-desc"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={f.description}
+              onChange={(e) => setF((prev) => ({ ...prev, description: e.target.value }))}
               rows={4}
               className="mt-1.5 w-full resize-y rounded-[10px] border border-border bg-black-contrast/25 px-3 py-2 text-sm text-text outline-none focus:border-primary/40 focus:ring-2"
               placeholder="Détaillez la prestation…"
@@ -258,8 +262,8 @@ export function DevisForm(props: DevisFormProps) {
                 inputMode="decimal"
                 min={0}
                 step={0.01}
-                value={montantHt}
-                onChange={(e) => setMontantHt(e.target.value)}
+                value={f.montantHt}
+                onChange={(e) => setF((prev) => ({ ...prev, montantHt: e.target.value }))}
                 className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2"
                 placeholder="0"
               />
@@ -270,8 +274,10 @@ export function DevisForm(props: DevisFormProps) {
               </label>
               <select
                 id="devis-tva"
-                value={String(tvaPct)}
-                onChange={(e) => setTvaPct(Number(e.target.value))}
+                value={String(f.tvaPct)}
+                onChange={(e) =>
+                  setF((prev) => ({ ...prev, tvaPct: Number(e.target.value) }))
+                }
                 className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2"
               >
                 <option value="0">0 %</option>
@@ -297,8 +303,8 @@ export function DevisForm(props: DevisFormProps) {
               <input
                 id="devis-date"
                 type="date"
-                value={dateEmission}
-                onChange={(e) => setDateEmission(e.target.value)}
+                value={f.dateEmission}
+                onChange={(e) => setF((prev) => ({ ...prev, dateEmission: e.target.value }))}
                 required
                 className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2"
               />
@@ -309,8 +315,8 @@ export function DevisForm(props: DevisFormProps) {
               </label>
               <select
                 id="devis-statut"
-                value={statut}
-                onChange={(e) => setStatut(e.target.value)}
+                value={f.statut}
+                onChange={(e) => setF((prev) => ({ ...prev, statut: e.target.value }))}
                 className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2"
               >
                 {STATUT_OPTIONS.map((o) => (

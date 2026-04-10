@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { exportClientsToExcel } from '../lib/excelExport'
+import { exportClientsListToPdf } from '../lib/pdfExport'
 import { supabase } from '../lib/supabase'
 import type { ClientEditPayload } from './ClientForm'
 
@@ -59,9 +61,29 @@ export function ClientsPage(props: {
       aria-label="Liste des clients"
       className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]"
     >
-      <div>
-        <h1 className="text-[20px] font-semibold tracking-tight">Clients</h1>
-        <p className="mt-1 text-sm text-text-muted">Tous les contacts enregistrés dans Supabase.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-[20px] font-semibold tracking-tight">Clients</h1>
+          <p className="mt-1 text-sm text-text-muted">Tous les contacts enregistrés dans Supabase.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => exportClientsListToPdf(props.clients)}
+            disabled={props.loading || props.clients.length === 0}
+            className="h-10 shrink-0 rounded-[10px] border border-primary/35 bg-primary/10 px-4 text-sm font-semibold text-text outline-none transition duration-200 ease-out hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98]"
+          >
+            Exporter la liste
+          </button>
+          <button
+            type="button"
+            onClick={() => exportClientsToExcel(props.clients)}
+            disabled={props.loading || props.clients.length === 0}
+            className="h-10 shrink-0 rounded-[10px] border border-primary/35 bg-primary/10 px-4 text-sm font-semibold text-text outline-none transition duration-200 ease-out hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98]"
+          >
+            Exporter Excel
+          </button>
+        </div>
       </div>
 
       <div className="mt-5 overflow-x-auto rounded-[12px] border border-border">

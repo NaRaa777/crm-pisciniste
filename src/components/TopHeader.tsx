@@ -43,12 +43,14 @@ export function TopHeader(props: {
   useEffect(() => {
     const q = debouncedQuery.trim()
     if (q.length < 1) {
-      setResults([])
-      setLoading(false)
+      queueMicrotask(() => {
+        setResults([])
+        setLoading(false)
+      })
       return
     }
     let cancelled = false
-    setLoading(true)
+    queueMicrotask(() => setLoading(true))
     void runGlobalSearch(q).then((rows) => {
       if (!cancelled) {
         setResults(rows)
@@ -89,8 +91,8 @@ export function TopHeader(props: {
   }, [loadNotifications])
 
   useEffect(() => {
-    loadNotifications()
-    const t = window.setInterval(loadNotifications, 120_000)
+    queueMicrotask(() => loadNotifications())
+    const t = window.setInterval(() => queueMicrotask(() => loadNotifications()), 120_000)
     return () => window.clearInterval(t)
   }, [loadNotifications])
 
