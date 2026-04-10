@@ -94,7 +94,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="h-11 w-full rounded-[10px] bg-primary text-sm font-semibold text-white outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
+            className="login-submit-btn"
           >
             {submitting ? 'Patientez…' : mode === 'login' ? 'Se connecter' : 'Créer le compte'}
           </button>
