@@ -1,0 +1,679 @@
+import type { Session } from '@supabase/supabase-js'
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react'
+import { AlertsBar } from './components/AlertsBar'
+import { AnalyticsPage } from './components/AnalyticsPage'
+import { AnalyticsPanel } from './components/AnalyticsPanel'
+import { KpiCards } from './components/KpiCards'
+import {
+  connectedUser,
+} from './components/mockData'
+import { PaymentsPanel } from './components/PaymentsPanel'
+import { PlanningBoard } from './components/PlanningBoard'
+import { PlanningDetailDrawer } from './components/PlanningDetailDrawer'
+import { ChantierForm, type ChantierEditPayload } from './components/ChantierForm'
+import { ChantiersPage } from './components/ChantiersPage'
+import { ClientForm, type ClientEditPayload } from './components/ClientForm'
+import { DevisForm, type DevisEditPayload } from './components/DevisForm'
+import { DevisPage } from './components/DevisPage'
+import { AidePage } from './components/AidePage'
+import { ClientsPage } from './components/ClientsPage'
+import { PaiementForm, type PaiementEditPayload } from './components/PaiementForm'
+import { LoginPage } from './components/LoginPage'
+import { ParametresPage } from './components/ParametresPage'
+import { PaiementsPage } from './components/PaiementsPage'
+import { PlanningPage } from './components/PlanningPage'
+import { Sidebar } from './components/Sidebar'
+import { TacheForm, type TacheEditPayload } from './components/TacheForm'
+import { SiteTable } from './components/SiteTable'
+import { TopHeader } from './components/TopHeader'
+import type { AnalyticsPeriod, PaymentStatus, PlanningFilter, PlanningStatus, Priority, ThemeMode } from './components/types'
+import type { PlanningTask, SiteRow, TransactionRow } from './components/mockData'
+import { BarChart3, CalendarDays, CreditCard, Hammer, LayoutDashboard, X } from 'lucide-react'
+import {
+  addDays,
+  firstDayOfMonth,
+  firstDayOfPreviousMonth,
+  inCalendarMonth,
+  inTimeRange,
+  mondayStartOfWeek,
+  parseTimestamp,
+  pctChange,
+} from './lib/kpiMetrics'
+import { loadUserPrefs, saveUserPrefs } from './lib/userPrefs'
+import { supabase } from './lib/supabase'
+import { useChantiers, useClients, useDevis, usePaiements, useTaches } from './lib/useSupabaseData'
+
+function setHtmlTheme(theme: ThemeMode) {
+  document.documentElement.dataset.theme = theme
+}
+
+function AuthenticatedApp() {
+  const { clients, loading: clientsLoading, refetch: refetchClients } = useClients()
+  const { chantiers, loading: chantiersLoading, refetch: refetchChantiers } = useChantiers()
+  const { paiements, loading: paiementsLoading, refetch: refetchPaiements } = usePaiements()
+  const { taches, loading: tachesLoading, refetch: refetchTaches } = useTaches()
+  const { devis, loading: devisLoading, refetch: refetchDevis } = useDevis()
+
+  const [theme, setTheme] = useState<ThemeMode>('dark')
+  const [userProfile, setUserProfile] = useState<{ name: string; email: string }>(() =>
+    loadUserPrefs(connectedUser.name),
+  )
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
+  const [planningFilter, setPlanningFilter] = useState<PlanningFilter>('week')
+  const [selectedTask, setSelectedTask] = useState<PlanningTask | null>(null)
+
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<AnalyticsPeriod>('30d')
+
+  const [clientFormOpen, setClientFormOpen] = useState(false)
+  const [clientBeingEdited, setClientBeingEdited] = useState<ClientEditPayload | null>(null)
+  const [navKey, setNavKey] = useState<string>('dashboard')
+  const [chantierFormOpen, setChantierFormOpen] = useState(false)
+  const [chantierBeingEdited, setChantierBeingEdited] = useState<ChantierEditPayload | null>(null)
+  const [paiementFormOpen, setPaiementFormOpen] = useState(false)
+  const [paiementBeingEdited, setPaiementBeingEdited] = useState<PaiementEditPayload | null>(null)
+  const [tacheFormOpen, setTacheFormOpen] = useState(false)
+  const [tacheBeingEdited, setTacheBeingEdited] = useState<TacheEditPayload | null>(null)
+  const [devisFormOpen, setDevisFormOpen] = useState(false)
+  const [devisBeingEdited, setDevisBeingEdited] = useState<DevisEditPayload | null>(null)
+
+  useEffect(() => {
+    setHtmlTheme(theme)
+  }, [theme])
+
+  const handleQuickQuote = useCallback(() => {
+    setDevisBeingEdited(null)
+    setDevisFormOpen(true)
+  }, [])
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const mod = e.ctrlKey || e.metaKey
+      if (!mod) return
+      const k = e.key.toLowerCase()
+      if (k === 'd') {
+        e.preventDefault()
+        handleQuickQuote()
+      }
+      if (k === 'p') {
+        e.preventDefault()
+        setClientBeingEdited(null)
+        setClientFormOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [handleQuickQuote])
+
+  const planningTasks = useMemo<PlanningTask[]>(() => {
+    const mapStatus = (rawStatus: unknown): PlanningStatus => {
+      const value = String(rawStatus ?? '').toLowerCase().trim()
+      if (value.includes('retard') || value === 'late') return 'late'
+      if (value.includes('term') || value === 'done' || value === 'completed') return 'done'
+      if (value.includes('cours') || value === 'in_progress' || value === 'in progress') return 'in_progress'
+      return 'planned'
+    }
+
+    return (taches ?? []).map((t: any, idx: number) => ({
+      id: String(t.id ?? t.uuid ?? `task-${idx + 1}`),
+      date: String(t.date ?? t.deadline ?? t.created_at ?? new Date().toISOString().slice(0, 10)).slice(0, 10),
+      client: String(t.chantiers?.clients?.nom ?? t.client?.nom ?? t.client_nom ?? 'Client inconnu'),
+      title: String(t.titre ?? t.title ?? t.nom ?? 'Tâche'),
+      status: mapStatus(t.statut ?? t.status),
+      owner: String(t.responsable ?? t.owner ?? connectedUser.name),
+      notes: String(t.notes ?? t.description ?? 'Aucune note disponible.'),
+    }))
+  }, [taches])
+
+  const sites = useMemo<SiteRow[]>(() => {
+    const mapPriority = (rawPriority: unknown): Priority => {
+      const value = String(rawPriority ?? '').toLowerCase().trim()
+      if (value.includes('haut') || value === 'high') return 'high'
+      if (value.includes('bas') || value === 'low') return 'low'
+      return 'medium'
+    }
+
+    return (chantiers ?? []).map((c: any, idx: number) => ({
+      id: String(c.id ?? c.uuid ?? `site-${idx + 1}`),
+      name: String(c.titre ?? c.nom ?? c.title ?? `Chantier ${idx + 1}`),
+      client: String(c.clients?.nom ?? c.client?.nom ?? c.client_nom ?? 'Client inconnu'),
+      progress: Number.isFinite(Number(c.avancement)) ? Number(c.avancement) : 0,
+      dueDate: String(c.echeance ?? c.due_date ?? c.created_at ?? new Date().toISOString().slice(0, 10)).slice(0, 10),
+      priority: mapPriority(c.priorite ?? c.priority),
+      owner: String(c.responsable ?? c.owner ?? connectedUser.name),
+    }))
+  }, [chantiers])
+
+  const transactions = useMemo<TransactionRow[]>(() => {
+    const mapPaymentStatus = (rawStatus: unknown): PaymentStatus => {
+      const value = String(rawStatus ?? '').toLowerCase().trim()
+      if (value.includes('pay') || value === 'paid') return 'paid'
+      if (value.includes('part') || value === 'partial') return 'partial'
+      return 'unpaid'
+    }
+
+    return (paiements ?? []).map((p: any, idx: number) => {
+      const clientName = String(p.clients?.nom ?? p.client_nom ?? 'Client')
+      const siteName = String(p.chantiers?.titre ?? p.chantier_titre ?? 'Projet')
+      return {
+        id: String(p.id ?? p.reference ?? p.facture_id ?? `pay-${idx + 1}`),
+        label: String(p.label ?? `Paiement — ${clientName} (${siteName})`),
+        amount: Number.isFinite(Number(p.montant)) ? Number(p.montant) : 0,
+        status: mapPaymentStatus(p.statut ?? p.status),
+        date: String(p.date_paiement ?? p.date ?? p.created_at ?? new Date().toISOString().slice(0, 10)).slice(0, 10),
+      }
+    })
+  }, [paiements])
+
+  const paymentSummary = useMemo(() => {
+    const now = new Date()
+    const collectedThisMonth = transactions
+      .filter((tx) => tx.status !== 'unpaid' && inCalendarMonth(tx.date, now))
+      .reduce((sum, tx) => sum + tx.amount, 0)
+    const pending = transactions
+      .filter((tx) => tx.status !== 'paid')
+      .reduce((sum, tx) => sum + tx.amount, 0)
+
+    return { collectedThisMonth, pending }
+  }, [transactions])
+
+  const paymentStatusBreakdown = useMemo<Record<PaymentStatus, number>>(() => {
+    const counts = transactions.reduce(
+      (acc, tx) => {
+        acc[tx.status] += 1
+        return acc
+      },
+      { paid: 0, partial: 0, unpaid: 0 } as Record<PaymentStatus, number>,
+    )
+    const total = Math.max(transactions.length, 1)
+    return {
+      paid: Math.round((counts.paid / total) * 100),
+      partial: Math.round((counts.partial / total) * 100),
+      unpaid: Math.round((counts.unpaid / total) * 100),
+    }
+  }, [transactions])
+
+  const kpis = useMemo(() => {
+    const now = new Date()
+    const thisWeekStart = mondayStartOfWeek(now)
+    const thisWeekEndEx = addDays(thisWeekStart, 7)
+    const lastWeekStart = addDays(thisWeekStart, -7)
+    const lastWeekEndEx = thisWeekStart
+
+    const countCreatedInWeek = (rows: Record<string, unknown>[] | undefined, key: string) =>
+      (rows ?? []).filter((row) => {
+        const ts = parseTimestamp(row[key])
+        return ts != null && inTimeRange(ts, thisWeekStart, thisWeekEndEx)
+      }).length
+
+    const countCreatedLastWeek = (rows: Record<string, unknown>[] | undefined, key: string) =>
+      (rows ?? []).filter((row) => {
+        const ts = parseTimestamp(row[key])
+        return ts != null && inTimeRange(ts, lastWeekStart, lastWeekEndEx)
+      }).length
+
+    const productionsWeek = countCreatedInWeek(taches as Record<string, unknown>[], 'created_at')
+    const productionsLastWeek = countCreatedLastWeek(taches as Record<string, unknown>[], 'created_at')
+
+    const chantiersActifsThisWeek = countCreatedInWeek(chantiers as Record<string, unknown>[], 'created_at')
+    const chantiersActifsLastWeek = countCreatedLastWeek(chantiers as Record<string, unknown>[], 'created_at')
+
+    const activeChantiersCount = (chantiers ?? []).filter((c: { statut?: unknown; status?: unknown }) => {
+      const s = String(c.statut ?? c.status ?? '').toLowerCase()
+      return !(s.includes('termin') || s === 'done' || s === 'completed')
+    }).length
+
+    const mapPayStat = (raw: unknown) => {
+      const value = String(raw ?? '').toLowerCase().trim()
+      if (value.includes('pay') || value === 'paid') return 'paid' as const
+      if (value.includes('part') || value === 'partial') return 'partial' as const
+      return 'unpaid' as const
+    }
+
+    const pendingSumForMonth = (monthAnchor: Date) =>
+      (paiements ?? []).reduce((sum, p: Record<string, unknown>) => {
+        if (mapPayStat(p.statut ?? p.status) === 'paid') return sum
+        const ts = parseTimestamp(p.created_at)
+        if (ts == null) return sum
+        const d = new Date(ts)
+        if (d.getFullYear() !== monthAnchor.getFullYear() || d.getMonth() !== monthAnchor.getMonth()) return sum
+        const amt = Number(p.montant)
+        return sum + (Number.isFinite(amt) ? amt : 0)
+      }, 0)
+
+    const startThisMonth = firstDayOfMonth(now)
+    const startLastMonth = firstDayOfPreviousMonth(now)
+
+    const totalPaymentsInMonth = (monthAnchor: Date) =>
+      transactions.reduce((sum, tx) => {
+        const d = new Date(`${tx.date.slice(0, 10)}T12:00:00`)
+        if (d.getFullYear() !== monthAnchor.getFullYear() || d.getMonth() !== monthAnchor.getMonth()) return sum
+        return sum + tx.amount
+      }, 0)
+
+    const caThisMonth = totalPaymentsInMonth(startThisMonth)
+    const caLastMonth = totalPaymentsInMonth(startLastMonth)
+
+    const pendingThisMonth = pendingSumForMonth(startThisMonth)
+    const pendingLastMonth = pendingSumForMonth(startLastMonth)
+
+    return [
+      {
+        id: 'prod-week',
+        title: 'Productions cette semaine',
+        value: productionsWeek,
+        deltaPct: pctChange(productionsWeek, productionsLastWeek),
+        format: 'number' as const,
+      },
+      {
+        id: 'sites-active',
+        title: 'Chantiers actifs',
+        value: activeChantiersCount,
+        deltaPct: pctChange(chantiersActifsThisWeek, chantiersActifsLastWeek),
+        format: 'number' as const,
+      },
+      {
+        id: 'payments-pending',
+        title: 'Paiements en attente',
+        value: paymentSummary.pending,
+        deltaPct: pctChange(pendingThisMonth, pendingLastMonth),
+        format: 'currency' as const,
+      },
+      {
+        id: 'mrr-est',
+        title: 'CA mensuel estimé',
+        value: caThisMonth,
+        deltaPct: pctChange(caThisMonth, caLastMonth),
+        format: 'currency' as const,
+      },
+    ]
+  }, [
+    chantiers,
+    paiements,
+    paymentSummary.pending,
+    taches,
+    transactions,
+  ])
+
+  const loading = clientsLoading || chantiersLoading || paiementsLoading || tachesLoading
+  const lateTasks = useMemo(() => planningTasks.filter((t) => t.status === 'late').length, [planningTasks])
+
+  const clientOptions = useMemo(
+    () =>
+      (clients ?? [])
+        .map((c: { id?: unknown; nom?: unknown }) => ({
+          id: String(c.id ?? ''),
+          nom: String(c.nom ?? ''),
+        }))
+        .filter((c) => c.id !== ''),
+    [clients],
+  )
+
+  const chantierOptions = useMemo(
+    () =>
+      (chantiers ?? [])
+        .map((c: { id?: unknown; titre?: unknown; nom?: unknown }) => ({
+          id: String(c.id ?? ''),
+          titre: String(c.titre ?? c.nom ?? 'Sans titre'),
+        }))
+        .filter((c) => c.id !== ''),
+    [chantiers],
+  )
+
+  const chantierOptionsForDevis = useMemo(
+    () =>
+      (chantiers ?? [])
+        .map(
+          (c: {
+            id?: unknown
+            titre?: unknown
+            nom?: unknown
+            client_id?: unknown
+          }) => ({
+            id: String(c.id ?? ''),
+            titre: String(c.titre ?? c.nom ?? 'Sans titre'),
+            client_id: String(c.client_id ?? ''),
+          }),
+        )
+        .filter((c) => c.id !== '' && c.client_id !== ''),
+    [chantiers],
+  )
+
+  const refreshChantiersAndPaiements = useCallback(() => {
+    refetchChantiers()
+    refetchPaiements()
+  }, [refetchChantiers, refetchPaiements])
+
+  return (
+    <div className="min-h-full bg-bg text-text">
+      <div className="flex min-h-full">
+        <div className="hidden lg:block">
+          <Sidebar
+            activeKey={navKey}
+            onNavigate={setNavKey}
+            onQuickQuote={handleQuickQuote}
+            onQuickAddClient={() => {
+              setClientBeingEdited(null)
+              setClientFormOpen(true)
+            }}
+          />
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col lg:pl-[240px]">
+          <TopHeader
+            theme={theme}
+            onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+            onOpenMobileNav={() => setMobileNavOpen(true)}
+            onSearchNavigate={setNavKey}
+          />
+
+          <main className="mx-auto w-full max-w-[1440px] flex-1 px-6 py-6">
+            {navKey === 'clients' ? (
+              <ClientsPage
+                clients={clients as Record<string, unknown>[]}
+                loading={clientsLoading}
+                onRefresh={refetchClients}
+                onEditClient={(c) => {
+                  setClientBeingEdited(c)
+                  setClientFormOpen(true)
+                }}
+              />
+            ) : navKey === 'sites' ? (
+              <ChantiersPage
+                chantiers={chantiers as Record<string, unknown>[]}
+                loading={chantiersLoading}
+                onRefresh={refreshChantiersAndPaiements}
+                onEditChantier={(c) => {
+                  setChantierBeingEdited(c)
+                  setChantierFormOpen(true)
+                }}
+                onAddChantier={() => {
+                  setChantierBeingEdited(null)
+                  setChantierFormOpen(true)
+                }}
+              />
+            ) : navKey === 'payments' ? (
+              <PaiementsPage
+                paiements={paiements as Record<string, unknown>[]}
+                loading={paiementsLoading}
+                onRefresh={refetchPaiements}
+                onEditPaiement={(p) => {
+                  setPaiementBeingEdited(p)
+                  setPaiementFormOpen(true)
+                }}
+                onAddPaiement={() => {
+                  setPaiementBeingEdited(null)
+                  setPaiementFormOpen(true)
+                }}
+              />
+            ) : navKey === 'planning' ? (
+              <PlanningPage
+                taches={taches as Record<string, unknown>[]}
+                loading={tachesLoading}
+                onRefresh={refetchTaches}
+                onEditTache={(t) => {
+                  setTacheBeingEdited(t)
+                  setTacheFormOpen(true)
+                }}
+                onAddTache={() => {
+                  setTacheBeingEdited(null)
+                  setTacheFormOpen(true)
+                }}
+              />
+            ) : navKey === 'devis' ? (
+              <DevisPage
+                devis={devis as Record<string, unknown>[]}
+                loading={devisLoading}
+                onRefresh={refetchDevis}
+                onEditDevis={(d) => {
+                  setDevisBeingEdited(d)
+                  setDevisFormOpen(true)
+                }}
+                onNouveauDevis={() => {
+                  setDevisBeingEdited(null)
+                  setDevisFormOpen(true)
+                }}
+              />
+            ) : navKey === 'analytics' ? (
+              <AnalyticsPage
+                clients={clients as Record<string, unknown>[]}
+                chantiers={chantiers as Record<string, unknown>[]}
+                paiements={paiements as Record<string, unknown>[]}
+                loading={clientsLoading || chantiersLoading || paiementsLoading}
+              />
+            ) : navKey === 'settings' ? (
+              <ParametresPage
+                initialName={userProfile.name}
+                initialEmail={userProfile.email}
+                theme={theme}
+                onSaveProfile={(data) => {
+                  const name = data.name.trim() || connectedUser.name
+                  const email = data.email.trim()
+                  const next = { name, email }
+                  setUserProfile(next)
+                  saveUserPrefs(next)
+                }}
+                onThemeChange={setTheme}
+                onSignOut={() => void supabase.auth.signOut()}
+              />
+            ) : navKey === 'help' ? (
+              <AidePage />
+            ) : (
+              <>
+                <div className="mb-5">
+                  <AlertsBar lateTasks={lateTasks} pendingAmount={paymentSummary.pending} />
+                </div>
+
+                <div className="space-y-5">
+                  <KpiCards items={kpis} loading={loading} />
+
+                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
+                    <div className="space-y-5 lg:col-span-8">
+                      <PlanningBoard
+                        tasks={planningTasks}
+                        filter={planningFilter}
+                        onFilterChange={setPlanningFilter}
+                        selectedId={selectedTask?.id}
+                        onSelect={setSelectedTask}
+                        loading={loading}
+                      />
+
+                      <SiteTable sites={sites} loading={loading} />
+                    </div>
+
+                    <div className="space-y-5 lg:col-span-4">
+                      <div className="hidden lg:block lg:sticky lg:top-[92px] lg:space-y-5">
+                        <PaymentsPanel
+                          collectedThisMonth={paymentSummary.collectedThisMonth}
+                          pending={paymentSummary.pending}
+                          breakdown={paymentStatusBreakdown}
+                          transactions={transactions}
+                          loading={loading}
+                        />
+                      </div>
+
+                      <div className="lg:hidden space-y-5">
+                        <PaymentsPanel
+                          collectedThisMonth={paymentSummary.collectedThisMonth}
+                          pending={paymentSummary.pending}
+                          breakdown={paymentStatusBreakdown}
+                          transactions={transactions}
+                          loading={loading}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <AnalyticsPanel period={analyticsPeriod} onPeriodChange={setAnalyticsPeriod} loading={loading} />
+                </div>
+              </>
+            )}
+          </main>
+
+          <nav
+            className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-surface/85 backdrop-blur-md lg:hidden"
+            aria-label="Navigation mobile"
+          >
+            <div className="mx-auto grid max-w-[1440px] grid-cols-5 px-2 py-2">
+              <MobileTab icon={LayoutDashboard} label="Accueil" active />
+              <MobileTab icon={CalendarDays} label="Planning" />
+              <MobileTab icon={Hammer} label="Chantiers" />
+              <MobileTab icon={CreditCard} label="Paiements" />
+              <MobileTab icon={BarChart3} label="Stats" />
+            </div>
+          </nav>
+
+          <div className="h-16 lg:hidden" />
+        </div>
+      </div>
+
+      <PlanningDetailDrawer task={selectedTask} onClose={() => setSelectedTask(null)} />
+
+      <ClientForm
+        open={clientFormOpen}
+        editingClient={clientBeingEdited}
+        onClose={() => {
+          setClientFormOpen(false)
+          setClientBeingEdited(null)
+        }}
+        onSuccess={refetchClients}
+      />
+
+      <ChantierForm
+        open={chantierFormOpen}
+        editingChantier={chantierBeingEdited}
+        clients={clientOptions}
+        onClose={() => {
+          setChantierFormOpen(false)
+          setChantierBeingEdited(null)
+        }}
+        onSuccess={refreshChantiersAndPaiements}
+      />
+
+      <PaiementForm
+        open={paiementFormOpen}
+        editingPaiement={paiementBeingEdited}
+        clients={clientOptions}
+        chantiers={chantierOptions}
+        onClose={() => {
+          setPaiementFormOpen(false)
+          setPaiementBeingEdited(null)
+        }}
+        onSuccess={refetchPaiements}
+      />
+
+      <TacheForm
+        open={tacheFormOpen}
+        editingTache={tacheBeingEdited}
+        chantiers={chantierOptions}
+        onClose={() => {
+          setTacheFormOpen(false)
+          setTacheBeingEdited(null)
+        }}
+        onSuccess={refetchTaches}
+      />
+
+      <DevisForm
+        open={devisFormOpen}
+        editingDevis={devisBeingEdited}
+        onClose={() => {
+          setDevisFormOpen(false)
+          setDevisBeingEdited(null)
+        }}
+        onSuccess={refetchDevis}
+        clients={clientOptions}
+        chantiers={chantierOptionsForDevis}
+      />
+
+      {mobileNavOpen ? (
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setMobileNavOpen(false)}
+            aria-label="Fermer le menu"
+          />
+          <div className="absolute left-0 top-0 h-full w-[min(92vw,320px)] border-r border-border bg-surface-2 shadow-[var(--shadow-hover)]">
+            <div className="flex items-center justify-between border-b border-border p-4">
+              <div className="text-sm font-semibold">Navigation</div>
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(false)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-[10px] border border-border bg-black-contrast/20 outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                aria-label="Fermer"
+              >
+                <X className="h-5 w-5" strokeWidth={1.75} />
+              </button>
+            </div>
+            <div className="p-2">
+              <Sidebar
+                activeKey={navKey}
+                className="w-full border-0 bg-transparent"
+                onNavigate={(key) => {
+                  setNavKey(key)
+                  setMobileNavOpen(false)
+                }}
+                onQuickQuote={() => {
+                  handleQuickQuote()
+                  setMobileNavOpen(false)
+                }}
+                onQuickAddClient={() => {
+                  setClientBeingEdited(null)
+                  setClientFormOpen(true)
+                  setMobileNavOpen(false)
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+export default function App() {
+  const [session, setSession] = useState<Session | null>(null)
+  const [authReady, setAuthReady] = useState(false)
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s)
+      setAuthReady(true)
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s)
+    })
+    return () => sub.subscription.unsubscribe()
+  }, [])
+
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg text-text text-sm">
+        Chargement…
+      </div>
+    )
+  }
+  if (!session) return <LoginPage />
+  return <AuthenticatedApp />
+}
+
+function MobileTab(props: {
+  icon: ComponentType<{ className?: string; strokeWidth?: number }>
+  label: string
+  active?: boolean
+}) {
+  const Icon = props.icon
+  return (
+    <button
+      type="button"
+      className={[
+        'flex flex-col items-center justify-center gap-1 rounded-[12px] px-2 py-2 text-[11px] font-semibold outline-none transition',
+        'focus-visible:ring-2 focus-visible:ring-accent/60',
+        props.active ? 'text-primary' : 'text-text-muted hover:text-text',
+      ].join(' ')}
+    >
+      <Icon className="h-5 w-5" strokeWidth={1.75} />
+      <span className="truncate">{props.label}</span>
+    </button>
+  )
+}
