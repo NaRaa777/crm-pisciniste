@@ -251,7 +251,7 @@ export function TopHeader(props: {
 
             {notifOpen ? (
               <div
-                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[min(100vw-2rem,380px)] overflow-hidden rounded-[12px] border border-border bg-surface shadow-[var(--shadow-hover)]"
+                className="absolute left-auto right-0 top-[calc(100%+8px)] z-50 w-[min(90vw,380px)] max-w-[90vw] overflow-hidden rounded-[12px] border border-border bg-surface shadow-[var(--shadow-hover)] sm:w-[min(100vw-2rem,380px)] sm:max-w-none"
                 role="dialog"
                 aria-label="Alertes"
               >
