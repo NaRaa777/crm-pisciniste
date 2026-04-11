@@ -229,7 +229,7 @@ export function TopHeader(props: {
             )}
           </button>
 
-          <div className="relative" ref={notifWrapRef}>
+          <div ref={notifWrapRef} style={{ position: 'relative' }}>
             <button
               type="button"
               onClick={() => {
@@ -257,8 +257,8 @@ export function TopHeader(props: {
                   right: 0,
                   left: 'auto',
                   top: '100%',
-                  width: '320px',
-                  maxWidth: '90vw',
+                  width: 'min(320px, calc(100vw - 16px))',
+                  transform: 'translateX(0)',
                 }}
                 role="dialog"
                 aria-label="Alertes"
