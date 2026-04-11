@@ -130,9 +130,9 @@ export function TopHeader(props: {
     Boolean(props.onSearchNavigate) && dropdownOpen && query.trim().length >= 1
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-surface/70 backdrop-blur-md">
+    <header className="sticky top-0 z-30 overflow-visible border-b border-border bg-surface/70 backdrop-blur-md">
       <h1 className="sr-only">Tableau de bord CRM</h1>
-      <div className="mx-auto flex h-[72px] w-full max-w-[1440px] items-center gap-4 px-6">
+      <div className="mx-auto flex h-[72px] w-full max-w-[1440px] items-center gap-4 overflow-visible px-6">
         <div className="flex min-w-0 items-center gap-3 lg:hidden">
           <button
             type="button"
@@ -210,7 +210,7 @@ export function TopHeader(props: {
           ) : null}
         </div>
 
-        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        <div className="ml-auto flex items-center gap-2 overflow-visible sm:gap-3">
           <button
             type="button"
             onClick={props.onToggleTheme}
@@ -251,14 +251,14 @@ export function TopHeader(props: {
 
             {notifOpen ? (
               <div
-                className="z-50 overflow-hidden rounded-[12px] border border-border bg-surface shadow-[var(--shadow-hover)]"
+                className="overflow-hidden rounded-[12px] border border-border bg-surface shadow-[var(--shadow-hover)]"
                 style={{
-                  position: 'absolute',
-                  right: 0,
+                  position: 'fixed',
+                  top: '60px',
+                  right: '8px',
                   left: 'auto',
-                  top: '100%',
                   width: 'min(320px, calc(100vw - 16px))',
-                  transform: 'translateX(0)',
+                  zIndex: 9999,
                 }}
                 role="dialog"
                 aria-label="Alertes"
