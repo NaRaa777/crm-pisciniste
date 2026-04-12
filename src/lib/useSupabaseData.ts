@@ -101,7 +101,7 @@ export function useDevis() {
     if (!silent) setLoading(true)
     void supabase
       .from('devis')
-      .select('*, clients(nom), chantiers(titre)')
+      .select('*, clients(nom, entreprise, email, telephone), chantiers(titre)')
       .order('date_emission', { ascending: false })
       .then(({ data, error }) => {
         if (error) console.error(error)

@@ -354,25 +354,6 @@ function AuthenticatedApp() {
     [chantiers],
   )
 
-  const chantierOptionsForDevis = useMemo(
-    () =>
-      (chantiers ?? [])
-        .map(
-          (c: {
-            id?: unknown
-            titre?: unknown
-            nom?: unknown
-            client_id?: unknown
-          }) => ({
-            id: String(c.id ?? ''),
-            titre: String(c.titre ?? c.nom ?? 'Sans titre'),
-            client_id: String(c.client_id ?? ''),
-          }),
-        )
-        .filter((c) => c.id !== '' && c.client_id !== ''),
-    [chantiers],
-  )
-
   const refreshChantiersAndPaiements = useCallback(() => {
     refetchChantiers()
     refetchPaiements()
@@ -659,7 +640,6 @@ function AuthenticatedApp() {
         }}
         onSuccess={refetchDevis}
         clients={clientOptions}
-        chantiers={chantierOptionsForDevis}
       />
 
       {mobileNavOpen ? (

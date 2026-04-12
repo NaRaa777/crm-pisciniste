@@ -1,11 +1,10 @@
 /**
- * Données chargées via `useDevis()` (lib/useSupabaseData) avec la requête :
- * `supabase.from('devis').select('*, clients(nom), chantiers(titre)').order('date_emission', { ascending: false })`
+ * Données chargées via `useDevis()` (lib/useSupabaseData) avec jointures clients / chantiers.
  */
 import { useState } from 'react'
 import { exportDevisToPdf } from '../lib/pdfExport'
 import { supabase } from '../lib/supabase'
-import type { DevisEditPayload } from './DevisForm'
+import { devisRowToEditPayload, type DevisEditPayload } from './DevisForm'
 
 const eur = new Intl.NumberFormat('fr-FR', {
   style: 'currency',
@@ -62,25 +61,7 @@ export function DevisPage(props: {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   function toEditPayload(row: Record<string, unknown>): DevisEditPayload | null {
-    const id = row.id != null ? String(row.id) : ''
-    if (!id) return null
-    const client_id = String(row.client_id ?? '')
-    if (!client_id) return null
-    const ht = Number(row.montant_ht)
-    const tvaRaw = row.tva != null && row.tva !== '' ? row.tva : (row as { tva_pct?: unknown }).tva_pct
-    const tva = Number(tvaRaw)
-    const ttc = Number(row.montant_ttc)
-    return {
-      id,
-      client_id,
-      chantier_id: row.chantier_id != null ? String(row.chantier_id) : null,
-      description: String(row.description ?? ''),
-      montant_ht: Number.isFinite(ht) ? ht : 0,
-      tva: [0, 10, 20].includes(tva) ? tva : 20,
-      montant_ttc: Number.isFinite(ttc) ? ttc : 0,
-      date_emission: String(row.date_emission ?? '').slice(0, 10),
-      statut: String(row.statut ?? 'brouillon'),
-    }
+    return devisRowToEditPayload(row)
   }
 
   async function handleDelete(id: string) {
@@ -116,14 +97,13 @@ export function DevisPage(props: {
       </div>
 
       <div className="mt-5 overflow-x-auto rounded-[12px] border border-border">
-        <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[960px] border-collapse text-left text-sm">
           <thead className="bg-black-contrast/25 text-xs font-semibold text-text-muted">
             <tr>
+              <th className="px-3 py-3">N°</th>
               <th className="px-3 py-3">Client</th>
               <th className="px-3 py-3">Chantier</th>
-              <th className="min-w-[180px] px-3 py-3">Description</th>
               <th className="px-3 py-3">Montant HT</th>
-              <th className="px-3 py-3">TVA</th>
               <th className="px-3 py-3">Montant TTC</th>
               <th className="px-3 py-3">Date d’émission</th>
               <th className="px-3 py-3">Statut</th>
@@ -133,13 +113,13 @@ export function DevisPage(props: {
           <tbody className="divide-y divide-border">
             {props.loading ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-text-muted">
+                <td colSpan={8} className="px-4 py-8 text-center text-text-muted">
                   Chargement…
                 </td>
               </tr>
             ) : props.devis.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-text-muted">
+                <td colSpan={8} className="px-4 py-8 text-center text-text-muted">
                   Aucun devis pour le moment.
                 </td>
               </tr>
@@ -149,23 +129,16 @@ export function DevisPage(props: {
                 const editPayload = toEditPayload(row)
                 const busy = deletingId === id
                 const ht = Number(row.montant_ht)
-                const tva = Number(
-                  row.tva != null && row.tva !== '' ? row.tva : (row as { tva_pct?: unknown }).tva_pct,
-                )
                 const ttc = Number(row.montant_ttc)
+                const num = String(row.numero ?? '').trim()
 
                 return (
                   <tr key={id} className="bg-surface hover:bg-black-contrast/10">
+                    <td className="px-3 py-3 align-top font-mono text-xs text-text">{num || '—'}</td>
                     <td className="px-3 py-3 align-top font-medium text-text">{clientNom(row)}</td>
                     <td className="px-3 py-3 align-top text-text-muted">{chantierTitre(row)}</td>
-                    <td className="max-w-[240px] px-3 py-3 align-top text-text-muted">
-                      <span className="line-clamp-3 break-words">{cellText(row.description)}</span>
-                    </td>
                     <td className="px-3 py-3 align-top tabular-nums text-text">
                       {Number.isFinite(ht) ? eur.format(ht) : '—'}
-                    </td>
-                    <td className="px-3 py-3 align-top tabular-nums text-text-muted">
-                      {Number.isFinite(tva) ? `${tva} %` : '—'}
                     </td>
                     <td className="px-3 py-3 align-top tabular-nums text-text">
                       {Number.isFinite(ttc) ? eur.format(ttc) : '—'}
