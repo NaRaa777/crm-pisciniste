@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 
-export type HeaderNotificationKind = 'chantier_retard' | 'paiement_impaye' | 'tache_retard'
+export type HeaderNotificationKind = 'chantier_retard' | 'facture_impayee' | 'tache_retard'
 
 export type HeaderNotification = {
   id: string
@@ -43,18 +43,15 @@ function todayIsoForFilter(): string {
 }
 
 /**
- * Notifications : filtres côté Supabase (chantiers, paiements, tâches).
+ * Notifications : filtres côté Supabase (chantiers, facturation, tâches).
  */
 export async function fetchHeaderNotifications(): Promise<HeaderNotification[]> {
   const out: HeaderNotification[] = []
   const todayIso = todayIsoForFilter()
 
-  const [chantiersRes, paiementsRes, tachesRes] = await Promise.all([
+  const [chantiersRes, facturationRes, tachesRes] = await Promise.all([
     supabase.from('chantiers').select('id, titre, statut').eq('statut', 'En retard'),
-    supabase
-      .from('paiements')
-      .select('id, montant, statut, clients(nom)')
-      .or('statut.eq.unpaid,statut.eq."En attente"'),
+    supabase.from('facturation').select('id, montant_ttc, statut, clients(nom)').neq('statut', 'Payée'),
     supabase
       .from('taches')
       .select('id, titre, date_echeance, statut')
@@ -63,7 +60,7 @@ export async function fetchHeaderNotifications(): Promise<HeaderNotification[]> 
   ])
 
   if (chantiersRes.error) console.error(chantiersRes.error)
-  if (paiementsRes.error) console.error(paiementsRes.error)
+  if (facturationRes.error) console.error(facturationRes.error)
   if (tachesRes.error) console.error(tachesRes.error)
 
   const chantiers = chantiersRes.data ?? []
@@ -83,19 +80,19 @@ export async function fetchHeaderNotifications(): Promise<HeaderNotification[]> 
     })
   }
 
-  const paiements = paiementsRes.data ?? []
-  for (const row of paiements) {
+  const facturationRows = facturationRes.data ?? []
+  for (const row of facturationRows) {
     const r = row as Record<string, unknown>
     const id = r.id != null ? String(r.id) : ''
     if (!id) continue
     const clients = r.clients as { nom?: string } | null | undefined
     const clientNom = clients?.nom?.trim() || 'Client inconnu'
-    const montantStr = formatMontant(r.montant)
+    const montantStr = formatMontant(r.montant_ttc)
 
     out.push({
-      id: `paiement-${id}`,
-      kind: 'paiement_impaye',
-      typeLabel: 'Paiement impayé',
+      id: `facturation-${id}`,
+      kind: 'facture_impayee',
+      typeLabel: 'Facture en attente',
       detail: `${clientNom} — ${montantStr}`,
       dateDisplay: '—',
       sortKey: '0000-01-01',

@@ -43,6 +43,18 @@ function statutLabel(raw: unknown): string {
   return STATUT_LABELS[k] ?? cellText(raw)
 }
 
+const FACTURE_STATUT_LABELS: Record<string, string> = {
+  'en attente': 'En attente',
+  'payée': 'Payée',
+  'en retard': 'En retard',
+}
+
+function factureStatutLabel(raw: unknown): string {
+  const s = String(raw ?? 'En attente').trim()
+  const k = s.toLowerCase()
+  return FACTURE_STATUT_LABELS[k] ?? s
+}
+
 function safeFileSegment(s: string, maxLen = 48): string {
   return s
     .replace(/[<>:"/\\|?*]/g, '_')
@@ -112,8 +124,12 @@ function clientBlock(row: Record<string, unknown>): string[] {
   return lines.length ? lines : ['—']
 }
 
-/** PDF devis professionnel : en-tête, lignes, totaux, conditions, pied de page. */
-export function exportDevisToPdf(row: Record<string, unknown>): void {
+type QuotePdfKind = 'devis' | 'facture'
+
+function exportQuoteLikePdf(
+  row: Record<string, unknown>,
+  kind: QuotePdfKind,
+): void {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW = doc.internal.pageSize.getWidth()
   const margin = 14
@@ -122,8 +138,12 @@ export function exportDevisToPdf(row: Record<string, unknown>): void {
   const dateEmis = formatDatePdf(row.date_emission)
   const lignes = parseLignesPdf(row)
 
+  const headline = kind === 'facture' ? 'FACTURE' : 'DEVIS'
+  const docWord = kind === 'facture' ? 'Facture' : 'Devis'
+  const statutFn = kind === 'facture' ? factureStatutLabel : statutLabel
+
   doc.setProperties({
-    title: `Devis ${numero}`,
+    title: `${docWord} ${numero}`,
     subject: 'Export CRM Perso',
   })
 
@@ -136,7 +156,7 @@ export function exportDevisToPdf(row: Record<string, unknown>): void {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(22)
   doc.setTextColor(35, 35, 35)
-  doc.text('DEVIS', pageW - margin, 18, { align: 'right' })
+  doc.text(headline, pageW - margin, 18, { align: 'right' })
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
@@ -247,6 +267,7 @@ export function exportDevisToPdf(row: Record<string, unknown>): void {
 
   ty += 12
   const validite = row.validite_jours != null && row.validite_jours !== '' ? Number(row.validite_jours) : 30
+  const dateEcheance = formatDatePdf(row.date_echeance)
   const conditions = String(row.conditions ?? '').trim()
   doc.setFontSize(8.5)
   doc.setTextColor(40, 40, 40)
@@ -254,28 +275,44 @@ export function exportDevisToPdf(row: Record<string, unknown>): void {
   doc.text('Conditions', margin, ty)
   doc.setFont('helvetica', 'normal')
   ty += 5
-  const condLines = doc.splitTextToSize(
-    [
-      Number.isFinite(validite) && validite > 0 ? `Validité du devis : ${validite} jour(s) à compter de la date d’émission.` : '',
-      conditions,
-      `Statut : ${statutLabel(row.statut)}`,
-    ]
-      .filter(Boolean)
-      .join('\n\n'),
-    pageW - 2 * margin,
-  )
+  const condParts =
+    kind === 'devis'
+      ? [
+          Number.isFinite(validite) && validite > 0
+            ? `Validité du devis : ${validite} jour(s) à compter de la date d’émission.`
+            : '',
+          conditions,
+          `Statut : ${statutFn(row.statut)}`,
+        ]
+      : [
+          dateEcheance !== '—' ? `Date d’échéance : ${dateEcheance}` : '',
+          conditions,
+          `Statut : ${statutFn(row.statut)}`,
+        ]
+  const condLines = doc.splitTextToSize(condParts.filter(Boolean).join('\n\n'), pageW - 2 * margin)
   doc.text(condLines, margin, ty)
   ty += condLines.length * 4 + 8
 
   const footY = Math.min(ty + 6, doc.internal.pageSize.getHeight() - 12)
   doc.setFontSize(8)
   doc.setTextColor(120, 120, 120)
-  doc.text(`Devis ${numero} · émis le ${dateEmis}`, margin, footY)
+  doc.text(`${docWord} ${numero} · émis le ${dateEmis}`, margin, footY)
   doc.text('CRM Perso', pageW - margin, footY, { align: 'right' })
 
-  const id = row.id != null ? String(row.id) : 'devis'
+  const id = row.id != null ? String(row.id) : kind
   const slug = safeFileSegment(clientNom(row))
-  doc.save(`devis-${slug}-${numero.replace(/[^a-zA-Z0-9-]/g, '') || id.slice(0, 8)}.pdf`)
+  const prefix = kind === 'facture' ? 'facture' : 'devis'
+  doc.save(`${prefix}-${slug}-${numero.replace(/[^a-zA-Z0-9-]/g, '') || id.slice(0, 8)}.pdf`)
+}
+
+/** PDF devis professionnel : en-tête, lignes, totaux, conditions, pied de page. */
+export function exportDevisToPdf(row: Record<string, unknown>): void {
+  exportQuoteLikePdf(row, 'devis')
+}
+
+/** PDF facture : même mise en page que le devis, titre FACTURE. */
+export function exportFactureToPdf(row: Record<string, unknown>): void {
+  exportQuoteLikePdf(row, 'facture')
 }
 
 /** PDF liste clients : nom, entreprise, email, téléphone. */

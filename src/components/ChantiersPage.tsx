@@ -49,11 +49,11 @@ export function ChantiersPage(props: ChantiersPageProps) {
   async function handleDelete(id: string) {
     setDeletingId(id)
 
-    const { error: errPay } = await supabase.from('paiements').delete().eq('chantier_id', id)
-    if (errPay) {
-      console.error(errPay)
+    const { error: errFac } = await supabase.from('facturation').delete().eq('chantier_id', id)
+    if (errFac) {
+      console.error(errFac)
       setDeletingId(null)
-      alert(errPay.message || 'Impossible de supprimer les paiements liés.')
+      alert(errFac.message || 'Impossible de supprimer les factures liées.')
       return
     }
 

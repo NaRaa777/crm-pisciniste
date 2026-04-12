@@ -15,12 +15,12 @@ import { ChantiersPage } from './components/ChantiersPage'
 import { ClientForm, type ClientEditPayload } from './components/ClientForm'
 import { DevisForm, type DevisEditPayload } from './components/DevisForm'
 import { DevisPage } from './components/DevisPage'
+import { FactureForm, type FactureEditPayload } from './components/FactureForm'
+import { FacturationPage } from './components/FacturationPage'
 import { AidePage } from './components/AidePage'
 import { ClientsPage } from './components/ClientsPage'
-import { PaiementForm, type PaiementEditPayload } from './components/PaiementForm'
 import { LoginPage } from './components/LoginPage'
 import { ParametresPage } from './components/ParametresPage'
-import { PaiementsPage } from './components/PaiementsPage'
 import { PlanningPage } from './components/PlanningPage'
 import { Sidebar } from './components/Sidebar'
 import { TacheForm, type TacheEditPayload } from './components/TacheForm'
@@ -32,10 +32,10 @@ import {
   BarChart3,
   CalendarDays,
   Contact,
-  CreditCard,
   FileSpreadsheet,
   Hammer,
   LayoutDashboard,
+  Receipt,
   X,
 } from 'lucide-react'
 import {
@@ -50,7 +50,7 @@ import {
 } from './lib/kpiMetrics'
 import { loadUserPrefs, saveUserPrefs } from './lib/userPrefs'
 import { supabase } from './lib/supabase'
-import { useChantiers, useClients, useDevis, usePaiements, useTaches } from './lib/useSupabaseData'
+import { useChantiers, useClients, useDevis, useFacturation, useTaches } from './lib/useSupabaseData'
 
 function setHtmlTheme(theme: ThemeMode) {
   document.documentElement.dataset.theme = theme
@@ -73,21 +73,21 @@ function chantierSiteClientName(c: Record<string, unknown>): string {
   return rowStr(cl?.nom ?? c.client_nom, 'Client inconnu')
 }
 
-function paiementLabelParts(p: Record<string, unknown>): { client: string; site: string } {
-  const cl = p.clients as Record<string, unknown> | undefined
-  const ch = p.chantiers as Record<string, unknown> | undefined
+function facturationLabelParts(f: Record<string, unknown>): { client: string; site: string } {
+  const cl = f.clients as Record<string, unknown> | undefined
+  const ch = f.chantiers as Record<string, unknown> | undefined
   return {
-    client: rowStr(cl?.nom ?? p.client_nom, 'Client'),
-    site: rowStr(ch?.titre ?? p.chantier_titre, 'Projet'),
+    client: rowStr(cl?.nom ?? f.client_nom, 'Client'),
+    site: rowStr(ch?.titre ?? f.chantier_titre, 'Projet'),
   }
 }
 
 function AuthenticatedApp() {
   const { clients, loading: clientsLoading, refetch: refetchClients } = useClients()
   const { chantiers, loading: chantiersLoading, refetch: refetchChantiers } = useChantiers()
-  const { paiements, loading: paiementsLoading, refetch: refetchPaiements } = usePaiements()
   const { taches, loading: tachesLoading, refetch: refetchTaches } = useTaches()
   const { devis, loading: devisLoading, refetch: refetchDevis } = useDevis()
+  const { facturation, loading: facturationLoading, refetch: refetchFacturation } = useFacturation()
 
   const [theme, setTheme] = useState<ThemeMode>('dark')
   const [userProfile, setUserProfile] = useState<{ name: string; email: string }>(() =>
@@ -105,12 +105,12 @@ function AuthenticatedApp() {
   const [navKey, setNavKey] = useState<string>('dashboard')
   const [chantierFormOpen, setChantierFormOpen] = useState(false)
   const [chantierBeingEdited, setChantierBeingEdited] = useState<ChantierEditPayload | null>(null)
-  const [paiementFormOpen, setPaiementFormOpen] = useState(false)
-  const [paiementBeingEdited, setPaiementBeingEdited] = useState<PaiementEditPayload | null>(null)
   const [tacheFormOpen, setTacheFormOpen] = useState(false)
   const [tacheBeingEdited, setTacheBeingEdited] = useState<TacheEditPayload | null>(null)
   const [devisFormOpen, setDevisFormOpen] = useState(false)
   const [devisBeingEdited, setDevisBeingEdited] = useState<DevisEditPayload | null>(null)
+  const [factureFormOpen, setFactureFormOpen] = useState(false)
+  const [factureBeingEdited, setFactureBeingEdited] = useState<FactureEditPayload | null>(null)
 
   useEffect(() => {
     setHtmlTheme(theme)
@@ -181,35 +181,42 @@ function AuthenticatedApp() {
 
   const transactions = useMemo<TransactionRow[]>(() => {
     const mapPaymentStatus = (rawStatus: unknown): PaymentStatus => {
-      const value = String(rawStatus ?? '').toLowerCase().trim()
-      if (value.includes('pay') || value === 'paid') return 'paid'
-      if (value.includes('part') || value === 'partial') return 'partial'
+      const value = String(rawStatus ?? '').trim()
+      if (value === 'Payée') return 'paid'
       return 'unpaid'
     }
 
-    return (paiements ?? []).map((p: Record<string, unknown>, idx: number) => {
-      const { client: clientName, site: siteName } = paiementLabelParts(p)
+    return (facturation ?? []).map((f: Record<string, unknown>, idx: number) => {
+      const { client: clientName, site: siteName } = facturationLabelParts(f)
+      const num = String(f.numero ?? '').trim()
+      const paid = String(f.statut ?? '').trim() === 'Payée'
       return {
-        id: String(p.id ?? p.reference ?? p.facture_id ?? `pay-${idx + 1}`),
-        label: String(p.label ?? `Paiement — ${clientName} (${siteName})`),
-        amount: Number.isFinite(Number(p.montant)) ? Number(p.montant) : 0,
-        status: mapPaymentStatus(p.statut ?? p.status),
-        date: String(p.date_paiement ?? p.date ?? p.created_at ?? new Date().toISOString().slice(0, 10)).slice(0, 10),
+        id: String(f.id ?? `fac-${idx + 1}`),
+        label: num ? `Facture ${num} — ${clientName} (${siteName})` : `Facture — ${clientName}`,
+        amount: Number.isFinite(Number(f.montant_ttc)) ? Number(f.montant_ttc) : 0,
+        status: mapPaymentStatus(f.statut),
+        date: String(
+          paid ? f.date_paiement ?? f.date_emission : f.date_emission ?? f.created_at ?? new Date().toISOString(),
+        ).slice(0, 10),
       }
     })
-  }, [paiements])
+  }, [facturation])
 
   const paymentSummary = useMemo(() => {
     const now = new Date()
-    const collectedThisMonth = transactions
-      .filter((tx) => tx.status !== 'unpaid' && inCalendarMonth(tx.date, now))
-      .reduce((sum, tx) => sum + tx.amount, 0)
-    const pending = transactions
-      .filter((tx) => tx.status !== 'paid')
-      .reduce((sum, tx) => sum + tx.amount, 0)
+    const collectedThisMonth = (facturation ?? [])
+      .filter((f) => String(f.statut ?? '').trim() === 'Payée')
+      .filter((f) => {
+        const d = String(f.date_paiement ?? f.date_emission ?? '').slice(0, 10)
+        return inCalendarMonth(d, now)
+      })
+      .reduce((sum, f) => sum + (Number.isFinite(Number(f.montant_ttc)) ? Number(f.montant_ttc) : 0), 0)
+    const pending = (facturation ?? [])
+      .filter((f) => String(f.statut ?? '').trim() !== 'Payée')
+      .reduce((sum, f) => sum + (Number.isFinite(Number(f.montant_ttc)) ? Number(f.montant_ttc) : 0), 0)
 
     return { collectedThisMonth, pending }
-  }, [transactions])
+  }, [facturation])
 
   const paymentStatusBreakdown = useMemo<Record<PaymentStatus, number>>(() => {
     const counts = transactions.reduce(
@@ -257,21 +264,14 @@ function AuthenticatedApp() {
       return !(s.includes('termin') || s === 'done' || s === 'completed')
     }).length
 
-    const mapPayStat = (raw: unknown) => {
-      const value = String(raw ?? '').toLowerCase().trim()
-      if (value.includes('pay') || value === 'paid') return 'paid' as const
-      if (value.includes('part') || value === 'partial') return 'partial' as const
-      return 'unpaid' as const
-    }
-
     const pendingSumForMonth = (monthAnchor: Date) =>
-      (paiements ?? []).reduce((sum, p: Record<string, unknown>) => {
-        if (mapPayStat(p.statut ?? p.status) === 'paid') return sum
-        const ts = parseTimestamp(p.created_at)
+      (facturation ?? []).reduce((sum, f: Record<string, unknown>) => {
+        if (String(f.statut ?? '').trim() === 'Payée') return sum
+        const ts = parseTimestamp(f.date_emission ?? f.created_at)
         if (ts == null) return sum
         const d = new Date(ts)
         if (d.getFullYear() !== monthAnchor.getFullYear() || d.getMonth() !== monthAnchor.getMonth()) return sum
-        const amt = Number(p.montant)
+        const amt = Number(f.montant_ttc)
         return sum + (Number.isFinite(amt) ? amt : 0)
       }, 0)
 
@@ -279,10 +279,14 @@ function AuthenticatedApp() {
     const startLastMonth = firstDayOfPreviousMonth(now)
 
     const totalPaymentsInMonth = (monthAnchor: Date) =>
-      transactions.reduce((sum, tx) => {
-        const d = new Date(`${tx.date.slice(0, 10)}T12:00:00`)
+      (facturation ?? []).reduce((sum, f: Record<string, unknown>) => {
+        if (String(f.statut ?? '').trim() !== 'Payée') return sum
+        const dStr = String(f.date_paiement ?? f.date_emission ?? '').slice(0, 10)
+        const d = new Date(`${dStr}T12:00:00`)
+        if (Number.isNaN(d.getTime())) return sum
         if (d.getFullYear() !== monthAnchor.getFullYear() || d.getMonth() !== monthAnchor.getMonth()) return sum
-        return sum + tx.amount
+        const amt = Number(f.montant_ttc)
+        return sum + (Number.isFinite(amt) ? amt : 0)
       }, 0)
 
     const caThisMonth = totalPaymentsInMonth(startThisMonth)
@@ -308,7 +312,7 @@ function AuthenticatedApp() {
       },
       {
         id: 'payments-pending',
-        title: 'Paiements en attente',
+        title: 'Montants en attente',
         value: paymentSummary.pending,
         deltaPct: pctChange(pendingThisMonth, pendingLastMonth),
         format: 'currency' as const,
@@ -321,15 +325,10 @@ function AuthenticatedApp() {
         format: 'currency' as const,
       },
     ]
-  }, [
-    chantiers,
-    paiements,
-    paymentSummary.pending,
-    taches,
-    transactions,
-  ])
+  }, [chantiers, facturation, paymentSummary.pending, taches])
 
-  const loading = clientsLoading || chantiersLoading || paiementsLoading || tachesLoading
+  const loading =
+    clientsLoading || chantiersLoading || tachesLoading || devisLoading || facturationLoading
   const lateTasks = useMemo(() => planningTasks.filter((t) => t.status === 'late').length, [planningTasks])
 
   const clientOptions = useMemo(
@@ -354,10 +353,29 @@ function AuthenticatedApp() {
     [chantiers],
   )
 
-  const refreshChantiersAndPaiements = useCallback(() => {
+  const chantierOptionsForFacture = useMemo(
+    () =>
+      (chantiers ?? [])
+        .map(
+          (c: {
+            id?: unknown
+            titre?: unknown
+            nom?: unknown
+            client_id?: unknown
+          }) => ({
+            id: String(c.id ?? ''),
+            titre: String(c.titre ?? c.nom ?? 'Sans titre'),
+            client_id: String(c.client_id ?? ''),
+          }),
+        )
+        .filter((c) => c.id !== '' && c.client_id !== ''),
+    [chantiers],
+  )
+
+  const refreshChantiersAndFacturation = useCallback(() => {
     refetchChantiers()
-    refetchPaiements()
-  }, [refetchChantiers, refetchPaiements])
+    refetchFacturation()
+  }, [refetchChantiers, refetchFacturation])
 
   return (
     <div className="min-h-full bg-bg text-text">
@@ -397,7 +415,7 @@ function AuthenticatedApp() {
               <ChantiersPage
                 chantiers={chantiers as Record<string, unknown>[]}
                 loading={chantiersLoading}
-                onRefresh={refreshChantiersAndPaiements}
+                onRefresh={refreshChantiersAndFacturation}
                 onEditChantier={(c) => {
                   setChantierBeingEdited(c)
                   setChantierFormOpen(true)
@@ -407,18 +425,18 @@ function AuthenticatedApp() {
                   setChantierFormOpen(true)
                 }}
               />
-            ) : navKey === 'payments' ? (
-              <PaiementsPage
-                paiements={paiements as Record<string, unknown>[]}
-                loading={paiementsLoading}
-                onRefresh={refetchPaiements}
-                onEditPaiement={(p) => {
-                  setPaiementBeingEdited(p)
-                  setPaiementFormOpen(true)
+            ) : navKey === 'facturation' ? (
+              <FacturationPage
+                facturation={facturation as Record<string, unknown>[]}
+                loading={facturationLoading}
+                onRefresh={refetchFacturation}
+                onEditFacture={(f) => {
+                  setFactureBeingEdited(f)
+                  setFactureFormOpen(true)
                 }}
-                onAddPaiement={() => {
-                  setPaiementBeingEdited(null)
-                  setPaiementFormOpen(true)
+                onNouvelleFacture={() => {
+                  setFactureBeingEdited(null)
+                  setFactureFormOpen(true)
                 }}
               />
             ) : navKey === 'planning' ? (
@@ -448,13 +466,17 @@ function AuthenticatedApp() {
                   setDevisBeingEdited(null)
                   setDevisFormOpen(true)
                 }}
+                onApresConversionFacture={() => {
+                  void refetchFacturation()
+                  setNavKey('facturation')
+                }}
               />
             ) : navKey === 'analytics' ? (
               <AnalyticsPage
                 clients={clients as Record<string, unknown>[]}
                 chantiers={chantiers as Record<string, unknown>[]}
-                paiements={paiements as Record<string, unknown>[]}
-                loading={clientsLoading || chantiersLoading || paiementsLoading}
+                facturation={facturation as Record<string, unknown>[]}
+                loading={clientsLoading || chantiersLoading || facturationLoading}
               />
             ) : navKey === 'settings' ? (
               <ParametresPage
@@ -550,10 +572,10 @@ function AuthenticatedApp() {
                 onClick={() => setNavKey('sites')}
               />
               <MobileTab
-                icon={CreditCard}
-                label="Paiements"
-                active={navKey === 'payments'}
-                onClick={() => setNavKey('payments')}
+                icon={Receipt}
+                label="Facturation"
+                active={navKey === 'facturation'}
+                onClick={() => setNavKey('facturation')}
               />
               <MobileTab
                 icon={Contact}
@@ -602,20 +624,7 @@ function AuthenticatedApp() {
           setChantierFormOpen(false)
           setChantierBeingEdited(null)
         }}
-        onSuccess={refreshChantiersAndPaiements}
-      />
-
-      <PaiementForm
-        key={paiementFormOpen ? (paiementBeingEdited?.id ?? 'new') : 'closed'}
-        open={paiementFormOpen}
-        editingPaiement={paiementBeingEdited}
-        clients={clientOptions}
-        chantiers={chantierOptions}
-        onClose={() => {
-          setPaiementFormOpen(false)
-          setPaiementBeingEdited(null)
-        }}
-        onSuccess={refetchPaiements}
+        onSuccess={refreshChantiersAndFacturation}
       />
 
       <TacheForm
@@ -640,6 +649,23 @@ function AuthenticatedApp() {
         }}
         onSuccess={refetchDevis}
         clients={clientOptions}
+      />
+
+      <FactureForm
+        key={
+          factureFormOpen
+            ? `${factureBeingEdited?.id ?? 'new'}-${factureBeingEdited?.devis_id ?? 'x'}-${factureBeingEdited?.numero ?? ''}`
+            : 'closed'
+        }
+        open={factureFormOpen}
+        editingFacture={factureBeingEdited}
+        onClose={() => {
+          setFactureFormOpen(false)
+          setFactureBeingEdited(null)
+        }}
+        onSuccess={refetchFacturation}
+        clients={clientOptions}
+        chantiers={chantierOptionsForFacture}
       />
 
       {mobileNavOpen ? (

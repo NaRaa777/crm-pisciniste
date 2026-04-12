@@ -3,9 +3,9 @@ import { supabase } from './supabase'
 export type GlobalSearchResult = {
   id: string
   label: string
-  type: 'Client' | 'Chantier' | 'Paiement'
-  /** Clé de navigation App (`clients` | `sites` | `payments`) */
-  navKey: 'clients' | 'sites' | 'payments'
+  type: 'Client' | 'Chantier' | 'Facture'
+  /** Clé de navigation App */
+  navKey: 'clients' | 'sites' | 'facturation'
 }
 
 /** Motif ILIKE : '%' + query (échappée pour LIKE) + '%' */
@@ -15,6 +15,18 @@ function ilikePattern(query: string): string {
   return `%${escaped}%`
 }
 
+function dedupeFacturationRows(
+  a: Record<string, unknown>[] | null | undefined,
+  b: Record<string, unknown>[] | null | undefined,
+): Record<string, unknown>[] {
+  const map = new Map<string, Record<string, unknown>>()
+  for (const row of [...(a ?? []), ...(b ?? [])]) {
+    const id = row.id != null ? String(row.id) : ''
+    if (id && !map.has(id)) map.set(id, row)
+  }
+  return [...map.values()]
+}
+
 export async function runGlobalSearch(raw: string): Promise<GlobalSearchResult[]> {
   const q = raw.trim()
   if (q.length < 1) return []
@@ -22,13 +34,18 @@ export async function runGlobalSearch(raw: string): Promise<GlobalSearchResult[]
   const query = q
   const pat = ilikePattern(q)
 
-  const [nomClients, entClients, paiementsRes] = await Promise.all([
+  const [nomClients, entClients, facturationNum, facturationMontant] = await Promise.all([
     supabase.from('clients').select('id, nom, entreprise').ilike('nom', pat).limit(12),
     supabase.from('clients').select('id, nom, entreprise').ilike('entreprise', pat).limit(12),
     supabase
-      .from('paiements')
-      .select('id, montant, clients(nom), chantiers(titre, nom)')
-      .filter('montant::text', 'ilike', pat)
+      .from('facturation')
+      .select('id, numero, montant_ttc, clients(nom), chantiers(titre, nom)')
+      .ilike('numero', pat)
+      .limit(12),
+    supabase
+      .from('facturation')
+      .select('id, numero, montant_ttc, clients(nom), chantiers(titre, nom)')
+      .filter('montant_ttc::text', 'ilike', pat)
       .limit(12),
   ])
 
@@ -38,7 +55,7 @@ export async function runGlobalSearch(raw: string): Promise<GlobalSearchResult[]
     .ilike('titre', '%' + query + '%')
     .limit(5)
 
-  for (const res of [nomClients, entClients, paiementsRes]) {
+  for (const res of [nomClients, entClients, facturationNum, facturationMontant]) {
     if (res.error) console.error(res.error)
   }
 
@@ -53,12 +70,10 @@ export async function runGlobalSearch(raw: string): Promise<GlobalSearchResult[]
     })
   }
 
-  const paiementsRows = (paiementsRes.data ?? []) as {
-    id: string
-    montant: number
-    clients: { nom?: string } | null
-    chantiers: { titre?: string; nom?: string } | null
-  }[]
+  const facturationRows = dedupeFacturationRows(
+    facturationNum.data as Record<string, unknown>[] | null,
+    facturationMontant.data as Record<string, unknown>[] | null,
+  )
 
   const out: GlobalSearchResult[] = []
 
@@ -80,21 +95,24 @@ export async function runGlobalSearch(raw: string): Promise<GlobalSearchResult[]
     out.push({ id, label: titre, type: 'Chantier', navKey: 'sites' })
   }
 
-  for (const row of paiementsRows) {
+  for (const row of facturationRows) {
     const id = row.id != null ? String(row.id) : ''
     if (!id) continue
-    const montant = Number(row.montant)
+    const montant = Number(row.montant_ttc)
     const amountLabel = Number.isFinite(montant)
       ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(montant)
-      : String(row.montant)
-    const clientNom = row.clients?.nom?.trim()
-    const chantierTitre = row.chantiers?.titre ?? row.chantiers?.nom
-    const extra = [clientNom, chantierTitre].filter(Boolean).join(' · ')
+      : String(row.montant_ttc)
+    const num = String(row.numero ?? '').trim()
+    const cl = row.clients as { nom?: string } | null | undefined
+    const ch = row.chantiers as { titre?: string; nom?: string } | null | undefined
+    const clientNom = cl?.nom?.trim()
+    const chantierTitre = ch?.titre ?? ch?.nom
+    const extra = [num ? `#${num}` : null, clientNom, chantierTitre].filter(Boolean).join(' · ')
     out.push({
       id,
       label: extra ? `${amountLabel} — ${extra}` : amountLabel,
-      type: 'Paiement',
-      navKey: 'payments',
+      type: 'Facture',
+      navKey: 'facturation',
     })
   }
 

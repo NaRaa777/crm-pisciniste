@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Plus, Trash2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { devisRowToEditPayload } from './DevisForm'
 
 const eurDetailed = new Intl.NumberFormat('fr-FR', {
   style: 'currency',
@@ -19,7 +20,7 @@ export type EntrepriseInfo = {
   siret: string
 }
 
-export type DevisLignePersist = {
+export type FactureLignePersist = {
   description: string
   quantite: number
   prix_unitaire_ht: number
@@ -27,19 +28,22 @@ export type DevisLignePersist = {
   total_ht: number
 }
 
-export type DevisEditPayload = {
+export type FactureEditPayload = {
   id: string
+  devis_id: string | null
   client_id: string
+  chantier_id: string | null
   numero: string
   entreprise_info: EntrepriseInfo
-  lignes: DevisLignePersist[]
+  lignes: FactureLignePersist[]
   montant_ht: number
   tva: number
   montant_ttc: number
   date_emission: string
+  date_echeance: string
+  date_paiement: string | null
   statut: string
   conditions: string | null
-  validite_jours: number
 }
 
 type LigneDraft = {
@@ -50,22 +54,21 @@ type LigneDraft = {
   tvaPct: 0 | 10 | 20
 }
 
-type DevisFormProps = {
+export type FactureChantierOption = { id: string; titre: string; client_id: string }
+
+type FactureFormProps = {
   open: boolean
   onClose: () => void
   onSuccess?: () => void
   clients: DevisClientOption[]
-  editingDevis?: DevisEditPayload | null
+  chantiers: FactureChantierOption[]
+  editingFacture?: FactureEditPayload | null
 }
 
 const STATUT_OPTIONS: { value: string; label: string }[] = [
-  { value: 'brouillon', label: 'Brouillon' },
-  { value: 'envoye', label: 'Envoyé' },
-  { value: 'accepte', label: 'Accepté' },
-  { value: 'signe', label: 'Signé' },
-  { value: 'converti', label: 'Converti' },
-  { value: 'refuse', label: 'Refusé' },
-  { value: 'annule', label: 'Annulé' },
+  { value: 'En attente', label: 'En attente' },
+  { value: 'Payée', label: 'Payée' },
+  { value: 'En retard', label: 'En retard' },
 ]
 
 const TVA_OPTIONS: { value: 0 | 10 | 20; label: string }[] = [
@@ -74,10 +77,14 @@ const TVA_OPTIONS: { value: 0 | 10 | 20; label: string }[] = [
   { value: 20, label: '20 %' },
 ]
 
-function normalizeStatut(raw: unknown): string {
-  const s = String(raw ?? 'brouillon').trim().toLowerCase()
+function normalizeFactureStatut(raw: unknown): string {
+  const s = String(raw ?? 'En attente').trim()
   if (STATUT_OPTIONS.some((o) => o.value === s)) return s
-  return 'brouillon'
+  const k = s.toLowerCase()
+  if (k === 'en attente') return 'En attente'
+  if (k === 'payée' || k === 'payee') return 'Payée'
+  if (k === 'en retard') return 'En retard'
+  return 'En attente'
 }
 
 function emptyEntreprise(): EntrepriseInfo {
@@ -183,7 +190,7 @@ function effectiveTvaPercent(ht: number, ttc: number): number {
   return Math.round(((ttc - ht) / ht) * 10000) / 100
 }
 
-function persistLignes(lines: LigneDraft[]): DevisLignePersist[] {
+function persistLignes(lines: LigneDraft[]): FactureLignePersist[] {
   return lines.map((ln) => {
     const th = lineHt(ln)
     const q = Number(String(ln.quantite).replace(',', '.'))
@@ -198,16 +205,16 @@ function persistLignes(lines: LigneDraft[]): DevisLignePersist[] {
   })
 }
 
-function descriptionSummary(lines: LigneDraft[]): string {
-  const parts = lines.map((l) => l.description.trim()).filter(Boolean)
-  const s = parts.join(' ; ')
-  return s.slice(0, 500)
+function defaultEcheanceIso(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 30)
+  return d.toISOString().slice(0, 10)
 }
 
-async function fetchNextNumero(): Promise<string> {
+export async function fetchNextFactureNumero(): Promise<string> {
   const year = new Date().getFullYear()
-  const prefix = `DEV-${year}-`
-  const { data, error } = await supabase.from('devis').select('numero').not('numero', 'is', null)
+  const prefix = `FAC-${year}-`
+  const { data, error } = await supabase.from('facturation').select('numero').not('numero', 'is', null)
   if (error || !data) return `${prefix}001`
   let max = 0
   for (const row of data) {
@@ -220,7 +227,7 @@ async function fetchNextNumero(): Promise<string> {
   return `${prefix}${String(max + 1).padStart(3, '0')}`
 }
 
-export function devisRowToEditPayload(row: Record<string, unknown>): DevisEditPayload | null {
+export function factureRowToEditPayload(row: Record<string, unknown>): FactureEditPayload | null {
   const id = row.id != null ? String(row.id) : ''
   if (!id) return null
   const client_id = String(row.client_id ?? '')
@@ -233,24 +240,126 @@ export function devisRowToEditPayload(row: Record<string, unknown>): DevisEditPa
   const persisted = persistLignes(drafts)
   return {
     id,
+    devis_id: row.devis_id != null ? String(row.devis_id) : null,
     client_id,
-    numero: String(row.numero ?? '').trim() || `DEV-${new Date().getFullYear()}-000`,
+    chantier_id: row.chantier_id != null ? String(row.chantier_id) : null,
+    numero: String(row.numero ?? '').trim() || `FAC-${new Date().getFullYear()}-000`,
     entreprise_info: parseEntreprise(row.entreprise_info),
     lignes: persisted,
     montant_ht: Number.isFinite(ht) ? ht : 0,
     tva: Number.isFinite(tva) ? tva : 20,
     montant_ttc: Number.isFinite(ttc) ? ttc : 0,
     date_emission: String(row.date_emission ?? '').slice(0, 10),
-    statut: String(row.statut ?? 'brouillon'),
+    date_echeance: (() => {
+      const s = String(row.date_echeance ?? '').slice(0, 10)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+      return defaultEcheanceIso()
+    })(),
+    statut: normalizeFactureStatut(row.statut),
     conditions: row.conditions != null ? String(row.conditions) : null,
-    validite_jours: (() => {
-      const v = Number(row.validite_jours)
-      return Number.isFinite(v) && v >= 1 ? Math.floor(v) : 30
+    date_paiement: (() => {
+      const s = String(row.date_paiement ?? '').slice(0, 10)
+      return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null
     })(),
   }
 }
 
-function initialLinesFromPayload(ed: DevisEditPayload | null | undefined): LigneDraft[] {
+/** Brouillon de facture à partir d’un devis accepté (préremplissage). */
+export function factureDraftFromDevisRow(devisRow: Record<string, unknown>): FactureEditPayload | null {
+  const d = devisRowToEditPayload(devisRow)
+  if (!d) return null
+  const devisId = devisRow.id != null ? String(devisRow.id) : ''
+  const chantierId = devisRow.chantier_id != null ? String(devisRow.chantier_id) : null
+  const today = new Date().toISOString().slice(0, 10)
+  const due = new Date()
+  due.setDate(due.getDate() + (d.validite_jours >= 1 ? d.validite_jours : 30))
+  return {
+    id: '',
+    devis_id: devisId,
+    client_id: d.client_id,
+    chantier_id: chantierId,
+    numero: '',
+    entreprise_info: d.entreprise_info,
+    lignes: d.lignes.map((l) => ({ ...l })),
+    montant_ht: d.montant_ht,
+    tva: d.tva,
+    montant_ttc: d.montant_ttc,
+    conditions: d.conditions,
+    date_emission: today,
+    date_echeance: due.toISOString().slice(0, 10),
+    date_paiement: null,
+    statut: 'En attente',
+  }
+}
+
+/**
+ * Insère une facture préremplie depuis un devis, numérotation FAC-AAAA-NNN,
+ * puis passe le devis en statut `converti`. Annule la facture si la mise à jour du devis échoue.
+ */
+export async function createFactureFromDevisRow(
+  devisRow: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const draft = factureDraftFromDevisRow(devisRow)
+  if (!draft) return { ok: false, message: 'Devis invalide ou incomplet.' }
+  const devisId = devisRow.id != null ? String(devisRow.id) : ''
+  if (!devisId) return { ok: false, message: 'Devis sans identifiant.' }
+
+  const numero = await fetchNextFactureNumero()
+  const ei = draft.entreprise_info
+  const tvaEffective = effectiveTvaPercent(draft.montant_ht, draft.montant_ttc)
+
+  const row: Record<string, unknown> = {
+    type: 'facture',
+    client_id: draft.client_id.trim(),
+    chantier_id: draft.chantier_id?.trim() || null,
+    devis_id: devisId,
+    numero,
+    entreprise_info: {
+      nom: ei.nom.trim(),
+      adresse: ei.adresse.trim(),
+      email: ei.email.trim(),
+      telephone: ei.telephone.trim(),
+      siret: ei.siret.trim(),
+    },
+    lignes: draft.lignes,
+    conditions: draft.conditions,
+    montant_ht: draft.montant_ht,
+    tva: tvaEffective,
+    montant_ttc: draft.montant_ttc,
+    date_emission: draft.date_emission,
+    date_echeance: draft.date_echeance,
+    statut: 'En attente',
+    date_paiement: null,
+  }
+
+  const { data: inserted, error: insErr } = await supabase.from('facturation').insert(row).select('id').maybeSingle()
+
+  if (insErr) {
+    console.error(insErr)
+    return {
+      ok: false,
+      message:
+        insErr.message.includes('relation') || insErr.message.includes('does not exist')
+          ? 'Table « facturation » absente : exécute la migration SQL Supabase.'
+          : insErr.message.includes('unique') && insErr.message.includes('numero')
+            ? 'Ce numéro de facture existe déjà. Réessaie.'
+            : insErr.message || 'Impossible de créer la facture.',
+    }
+  }
+
+  const newId = inserted?.id != null ? String(inserted.id) : ''
+
+  const { error: upErr } = await supabase.from('devis').update({ statut: 'converti' }).eq('id', devisId)
+  if (upErr) {
+    console.error(upErr)
+    if (newId) await supabase.from('facturation').delete().eq('id', newId)
+    return { ok: false, message: upErr.message || 'Impossible de marquer le devis comme converti.' }
+  }
+
+  return { ok: true }
+}
+
+function initialLinesFromPayload(ed: FactureEditPayload | null | undefined): LigneDraft[] {
   if (!ed?.lignes?.length) return [newLine()]
   return ed.lignes.map((l) => ({
     id: crypto.randomUUID(),
@@ -261,60 +370,74 @@ function initialLinesFromPayload(ed: DevisEditPayload | null | undefined): Ligne
   }))
 }
 
-export function DevisForm(props: DevisFormProps) {
-  const isEdit = Boolean(props.editingDevis)
-  const [numero, setNumero] = useState(() => props.editingDevis?.numero ?? '')
+export function FactureForm(props: FactureFormProps) {
+  const isEdit = Boolean(props.editingFacture?.id)
+  const [numero, setNumero] = useState(() => props.editingFacture?.numero ?? '')
+  const [devisId, setDevisId] = useState<string | null>(() => props.editingFacture?.devis_id ?? null)
   const [entreprise, setEntreprise] = useState<EntrepriseInfo>(() =>
-    props.editingDevis ? parseEntreprise(props.editingDevis.entreprise_info) : emptyEntreprise(),
+    props.editingFacture ? parseEntreprise(props.editingFacture.entreprise_info) : emptyEntreprise(),
   )
-  const [clientId, setClientId] = useState(() => props.editingDevis?.client_id ?? '')
-  const [lignes, setLignes] = useState<LigneDraft[]>(() => initialLinesFromPayload(props.editingDevis))
+  const [clientId, setClientId] = useState(() => props.editingFacture?.client_id ?? '')
+  const [chantierId, setChantierId] = useState(() => props.editingFacture?.chantier_id ?? '')
+  const [lignes, setLignes] = useState<LigneDraft[]>(() => initialLinesFromPayload(props.editingFacture))
   const [delaiPaiement, setDelaiPaiement] = useState(() => {
-    if (!props.editingDevis) return ''
-    return parseDelaiNotes(props.editingDevis.conditions).delai
+    if (!props.editingFacture) return ''
+    return parseDelaiNotes(props.editingFacture.conditions).delai
   })
-  const [validiteJours, setValiditeJours] = useState(() => props.editingDevis?.validite_jours ?? 30)
   const [notesLegales, setNotesLegales] = useState(() => {
-    if (!props.editingDevis) return ''
-    return parseDelaiNotes(props.editingDevis.conditions).notes
+    if (!props.editingFacture) return ''
+    return parseDelaiNotes(props.editingFacture.conditions).notes
   })
   const [dateEmission, setDateEmission] = useState(
-    () => props.editingDevis?.date_emission ?? new Date().toISOString().slice(0, 10),
+    () => props.editingFacture?.date_emission ?? new Date().toISOString().slice(0, 10),
   )
-  const [statut, setStatut] = useState(() => normalizeStatut(props.editingDevis?.statut))
+  const [dateEcheance, setDateEcheance] = useState(
+    () => props.editingFacture?.date_echeance ?? defaultEcheanceIso(),
+  )
+  const [statut, setStatut] = useState(() => normalizeFactureStatut(props.editingFacture?.statut))
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
+  const chantiersFiltres = useMemo(() => {
+    if (!clientId) return []
+    return props.chantiers.filter((c) => c.client_id === clientId)
+  }, [props.chantiers, clientId])
+
   useEffect(() => {
     if (!props.open) return
-    if (props.editingDevis) {
-      setNumero(props.editingDevis.numero)
-      setEntreprise(parseEntreprise(props.editingDevis.entreprise_info))
-      setClientId(props.editingDevis.client_id)
-      setLignes(initialLinesFromPayload(props.editingDevis))
-      setDelaiPaiement(parseDelaiNotes(props.editingDevis.conditions).delai)
-      setValiditeJours(props.editingDevis.validite_jours)
-      setNotesLegales(parseDelaiNotes(props.editingDevis.conditions).notes)
-      setDateEmission(props.editingDevis.date_emission)
-      setStatut(normalizeStatut(props.editingDevis.statut))
+    const ed = props.editingFacture
+    if (ed) {
+      setNumero(ed.numero)
+      setDevisId(ed.devis_id)
+      setEntreprise(parseEntreprise(ed.entreprise_info))
+      setClientId(ed.client_id)
+      setChantierId(ed.chantier_id ?? '')
+      setLignes(initialLinesFromPayload(ed))
+      setDelaiPaiement(parseDelaiNotes(ed.conditions).delai)
+      setNotesLegales(parseDelaiNotes(ed.conditions).notes)
+      setDateEmission(ed.date_emission)
+      setDateEcheance(ed.date_echeance || defaultEcheanceIso())
+      setStatut(normalizeFactureStatut(ed.statut))
       return
     }
+    setDevisId(null)
     setEntreprise(emptyEntreprise())
     setClientId('')
+    setChantierId('')
     setLignes([newLine()])
     setDelaiPaiement('')
-    setValiditeJours(30)
     setNotesLegales('')
     setDateEmission(new Date().toISOString().slice(0, 10))
-    setStatut('brouillon')
+    setDateEcheance(defaultEcheanceIso())
+    setStatut('En attente')
     let cancelled = false
-    void fetchNextNumero().then((n) => {
+    void fetchNextFactureNumero().then((n) => {
       if (!cancelled) setNumero(n)
     })
     return () => {
       cancelled = true
     }
-  }, [props.open, props.editingDevis])
+  }, [props.open, props.editingFacture])
 
   const totals = useMemo(() => computeAggregate(lignes), [lignes])
 
@@ -348,7 +471,7 @@ export function DevisForm(props: DevisFormProps) {
       return
     }
     if (!numero.trim()) {
-      setFormError('Numéro de devis indisponible. Réessaie dans un instant.')
+      setFormError('Numéro de facture indisponible. Réessaie dans un instant.')
       return
     }
 
@@ -365,9 +488,13 @@ export function DevisForm(props: DevisFormProps) {
       .filter(Boolean)
       .join('\n\n')
 
+    const st = normalizeFactureStatut(statut)
+    const todayIso = new Date().toISOString().slice(0, 10)
     const row: Record<string, unknown> = {
+      type: 'facture',
       client_id: clientId.trim(),
-      chantier_id: null,
+      chantier_id: chantierId.trim() || null,
+      devis_id: devisId,
       numero: numero.trim(),
       entreprise_info: {
         nom: entreprise.nom.trim(),
@@ -378,18 +505,22 @@ export function DevisForm(props: DevisFormProps) {
       },
       lignes: persisted,
       conditions: conditionsCombined || null,
-      validite_jours: Math.max(1, Math.floor(Number(validiteJours)) || 30),
-      description: descriptionSummary(validLines) || `Devis ${numero.trim()}`,
       montant_ht: agg.ht,
       tva: tvaEffective,
       montant_ttc: agg.ttc,
       date_emission: dateEmission.trim() || new Date().toISOString().slice(0, 10),
-      statut: normalizeStatut(statut),
+      date_echeance: dateEcheance.trim() || null,
+      statut: st,
+      date_paiement:
+        st === 'Payée'
+          ? props.editingFacture?.date_paiement?.slice(0, 10) || todayIso
+          : null,
     }
 
-    const { error } = isEdit
-      ? await supabase.from('devis').update(row).eq('id', props.editingDevis!.id)
-      : await supabase.from('devis').insert(row)
+    const editingId = props.editingFacture?.id
+    const { error } = editingId
+      ? await supabase.from('facturation').update(row).eq('id', editingId)
+      : await supabase.from('facturation').insert(row)
 
     setSubmitting(false)
 
@@ -397,10 +528,10 @@ export function DevisForm(props: DevisFormProps) {
       console.error(error)
       setFormError(
         error.message.includes('relation') || error.message.includes('does not exist')
-          ? 'Table « devis » absente ou colonnes manquantes : exécute les migrations SQL Supabase.'
+          ? 'Table « facturation » absente : exécute la migration SQL Supabase.'
           : error.message.includes('unique') && error.message.includes('numero')
-            ? 'Ce numéro de devis existe déjà.'
-            : error.message || 'Impossible d’enregistrer le devis.',
+            ? 'Ce numéro de facture existe déjà.'
+            : error.message || 'Impossible d’enregistrer la facture.',
       )
       return
     }
@@ -410,7 +541,7 @@ export function DevisForm(props: DevisFormProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-labelledby="devis-form-title">
+    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-labelledby="facture-form-title">
       <button
         type="button"
         className="absolute inset-0 bg-black/50"
@@ -420,8 +551,8 @@ export function DevisForm(props: DevisFormProps) {
       <div className="absolute left-1/2 top-1/2 max-h-[min(92vh,calc(100vh-1rem))] w-[min(92vw,880px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[14px] border border-border bg-surface p-5 shadow-[var(--shadow-hover)]">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 id="devis-form-title" className="text-lg font-semibold tracking-tight">
-              {isEdit ? 'Modifier le devis' : 'Nouveau devis'}
+            <h2 id="facture-form-title" className="text-lg font-semibold tracking-tight">
+              {isEdit ? 'Modifier la facture' : 'Nouvelle facture'}
             </h2>
             <p className="mt-1 text-sm text-text-muted">
               Numéro :{' '}
@@ -443,11 +574,11 @@ export function DevisForm(props: DevisFormProps) {
             <h3 className="text-sm font-semibold text-text">Votre entreprise</h3>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label htmlFor="devis-ent-nom" className="block text-xs font-semibold text-text-muted">
+                <label htmlFor="facture-ent-nom" className="block text-xs font-semibold text-text-muted">
                   Nom / raison sociale
                 </label>
                 <input
-                  id="devis-ent-nom"
+                  id="facture-ent-nom"
                   value={entreprise.nom}
                   onChange={(e) => setEntreprise((p) => ({ ...p, nom: e.target.value }))}
                   className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2"
@@ -455,11 +586,11 @@ export function DevisForm(props: DevisFormProps) {
                 />
               </div>
               <div className="sm:col-span-2">
-                <label htmlFor="devis-ent-adr" className="block text-xs font-semibold text-text-muted">
+                <label htmlFor="facture-ent-adr" className="block text-xs font-semibold text-text-muted">
                   Adresse
                 </label>
                 <textarea
-                  id="devis-ent-adr"
+                  id="facture-ent-adr"
                   value={entreprise.adresse}
                   onChange={(e) => setEntreprise((p) => ({ ...p, adresse: e.target.value }))}
                   rows={2}
@@ -468,11 +599,11 @@ export function DevisForm(props: DevisFormProps) {
                 />
               </div>
               <div>
-                <label htmlFor="devis-ent-email" className="block text-xs font-semibold text-text-muted">
+                <label htmlFor="facture-ent-email" className="block text-xs font-semibold text-text-muted">
                   Email
                 </label>
                 <input
-                  id="devis-ent-email"
+                  id="facture-ent-email"
                   type="email"
                   autoComplete="email"
                   value={entreprise.email}
@@ -481,11 +612,11 @@ export function DevisForm(props: DevisFormProps) {
                 />
               </div>
               <div>
-                <label htmlFor="devis-ent-tel" className="block text-xs font-semibold text-text-muted">
+                <label htmlFor="facture-ent-tel" className="block text-xs font-semibold text-text-muted">
                   Téléphone
                 </label>
                 <input
-                  id="devis-ent-tel"
+                  id="facture-ent-tel"
                   type="tel"
                   value={entreprise.telephone}
                   onChange={(e) => setEntreprise((p) => ({ ...p, telephone: e.target.value }))}
@@ -493,11 +624,11 @@ export function DevisForm(props: DevisFormProps) {
                 />
               </div>
               <div className="sm:col-span-2">
-                <label htmlFor="devis-ent-siret" className="block text-xs font-semibold text-text-muted">
+                <label htmlFor="facture-ent-siret" className="block text-xs font-semibold text-text-muted">
                   SIRET
                 </label>
                 <input
-                  id="devis-ent-siret"
+                  id="facture-ent-siret"
                   value={entreprise.siret}
                   onChange={(e) => setEntreprise((p) => ({ ...p, siret: e.target.value }))}
                   className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2"
@@ -509,14 +640,18 @@ export function DevisForm(props: DevisFormProps) {
 
           <section>
             <h3 className="text-sm font-semibold text-text">Client</h3>
-            <label htmlFor="devis-client" className="mt-2 block text-xs font-semibold text-text-muted">
+            <label htmlFor="facture-client" className="mt-2 block text-xs font-semibold text-text-muted">
               Client
             </label>
             <select
-              id="devis-client"
+              id="facture-client"
               required
               value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value
+                setClientId(v)
+                setChantierId('')
+              }}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2"
             >
               <option value="">— Choisir un client —</option>
@@ -526,11 +661,34 @@ export function DevisForm(props: DevisFormProps) {
                 </option>
               ))}
             </select>
+            <label htmlFor="facture-chantier" className="mt-3 block text-xs font-semibold text-text-muted">
+              Chantier (optionnel)
+            </label>
+            <select
+              id="facture-chantier"
+              value={chantierId}
+              onChange={(e) => setChantierId(e.target.value)}
+              disabled={!clientId || chantiersFiltres.length === 0}
+              className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">
+                {!clientId
+                  ? '— Sélectionne d’abord un client —'
+                  : chantiersFiltres.length === 0
+                    ? '— Aucun chantier —'
+                    : '— Optionnel —'}
+              </option>
+              {chantiersFiltres.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.titre}
+                </option>
+              ))}
+            </select>
           </section>
 
           <section className="rounded-[12px] border border-border bg-black-contrast/10 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-text">Lignes du devis</h3>
+              <h3 className="text-sm font-semibold text-text">Lignes de la facture</h3>
               <button
                 type="button"
                 onClick={addLine}
@@ -642,37 +800,23 @@ export function DevisForm(props: DevisFormProps) {
             <h3 className="text-sm font-semibold text-text">Conditions</h3>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label htmlFor="devis-delai" className="block text-xs font-semibold text-text-muted">
+                <label htmlFor="facture-delai" className="block text-xs font-semibold text-text-muted">
                   Délai de paiement
                 </label>
                 <input
-                  id="devis-delai"
+                  id="facture-delai"
                   value={delaiPaiement}
                   onChange={(e) => setDelaiPaiement(e.target.value)}
                   className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2"
                   placeholder="ex. 30 jours fin de mois"
                 />
               </div>
-              <div>
-                <label htmlFor="devis-validite" className="block text-xs font-semibold text-text-muted">
-                  Validité du devis (jours)
-                </label>
-                <input
-                  id="devis-validite"
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={validiteJours}
-                  onChange={(e) => setValiditeJours(Number(e.target.value))}
-                  className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2"
-                />
-              </div>
               <div className="sm:col-span-2">
-                <label htmlFor="devis-notes" className="block text-xs font-semibold text-text-muted">
+                <label htmlFor="facture-notes" className="block text-xs font-semibold text-text-muted">
                   Notes et mentions légales
                 </label>
                 <textarea
-                  id="devis-notes"
+                  id="facture-notes"
                   value={notesLegales}
                   onChange={(e) => setNotesLegales(e.target.value)}
                   rows={3}
@@ -683,13 +827,13 @@ export function DevisForm(props: DevisFormProps) {
             </div>
           </section>
 
-          <div className="grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-3">
             <div>
-              <label htmlFor="devis-date" className="block text-xs font-semibold text-text-muted">
+              <label htmlFor="facture-date-emission" className="block text-xs font-semibold text-text-muted">
                 Date d’émission
               </label>
               <input
-                id="devis-date"
+                id="facture-date-emission"
                 type="date"
                 value={dateEmission}
                 onChange={(e) => setDateEmission(e.target.value)}
@@ -698,11 +842,23 @@ export function DevisForm(props: DevisFormProps) {
               />
             </div>
             <div>
-              <label htmlFor="devis-statut" className="block text-xs font-semibold text-text-muted">
+              <label htmlFor="facture-date-echeance" className="block text-xs font-semibold text-text-muted">
+                Date d’échéance
+              </label>
+              <input
+                id="facture-date-echeance"
+                type="date"
+                value={dateEcheance}
+                onChange={(e) => setDateEcheance(e.target.value)}
+                className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2"
+              />
+            </div>
+            <div>
+              <label htmlFor="facture-statut" className="block text-xs font-semibold text-text-muted">
                 Statut
               </label>
               <select
-                id="devis-statut"
+                id="facture-statut"
                 value={statut}
                 onChange={(e) => setStatut(e.target.value)}
                 className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none focus:border-primary/40 focus:ring-2"
@@ -736,7 +892,7 @@ export function DevisForm(props: DevisFormProps) {
               disabled={submitting}
               className="h-11 rounded-[10px] bg-primary px-5 text-sm font-semibold text-white outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
             >
-              {submitting ? 'Enregistrement…' : isEdit ? 'Enregistrer les modifications' : 'Enregistrer le devis'}
+              {submitting ? 'Enregistrement…' : isEdit ? 'Enregistrer les modifications' : 'Enregistrer la facture'}
             </button>
           </div>
         </form>
@@ -745,4 +901,4 @@ export function DevisForm(props: DevisFormProps) {
   )
 }
 
-export default DevisForm
+export default FactureForm

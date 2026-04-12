@@ -38,7 +38,7 @@ function Donut(props: { paid: number; partial: number; unpaid: number }) {
   }, [props.paid, props.partial, props.unpaid, total, r])
 
   return (
-    <svg viewBox="0 0 100 100" className="h-40 w-40" role="img" aria-label="Répartition des statuts de paiement">
+    <svg viewBox="0 0 100 100" className="h-40 w-40" role="img" aria-label="Répartition des statuts de facturation">
       <g transform="translate(50 50) rotate(-90)">
         <circle r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
         <circle
@@ -96,12 +96,12 @@ export function PaymentsPanel(props: {
 
   return (
     <section
-      aria-label="Paiements"
+      aria-label="Facturation"
       className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]"
     >
       <div>
-        <h2 className="text-[20px] font-semibold tracking-tight">Paiements</h2>
-        <p className="mt-1 text-sm text-text-muted">Encaissements, en attente et dernières transactions.</p>
+        <h2 className="text-[20px] font-semibold tracking-tight">Facturation</h2>
+        <p className="mt-1 text-sm text-text-muted">Encaissements, montants en attente et dernières factures.</p>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4">

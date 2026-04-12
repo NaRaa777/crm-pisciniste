@@ -23,8 +23,8 @@ const FAQ_ITEMS: FaqItem[] = [
     a: 'La page Chantiers liste vos projets ; le Planning regroupe les tâches par échéance et statut. Le tableau de bord résume l’activité de la semaine.',
   },
   {
-    q: 'Comment enregistrer un paiement ?',
-    a: 'Rendez-vous dans Paiements, puis « Nouveau paiement » ou modifiez une ligne existante pour mettre à jour le montant et le statut.',
+    q: 'Comment enregistrer un encaissement ?',
+    a: 'Ouvrez Facturation, sélectionnez la facture puis « Marquer comme payée », ou éditez la facture pour ajuster le statut et les montants.',
   },
   {
     q: 'Les données sont-elles sauvegardées ?',

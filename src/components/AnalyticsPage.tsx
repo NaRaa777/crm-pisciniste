@@ -4,7 +4,7 @@ import { formatEUR } from './format'
 export type AnalyticsPageProps = {
   clients: Record<string, unknown>[]
   chantiers: Record<string, unknown>[]
-  paiements: Record<string, unknown>[]
+  facturation: Record<string, unknown>[]
   loading: boolean
 }
 
@@ -33,16 +33,15 @@ const CHANTIER_LABELS: Record<ChantierStatutKey, string> = {
   termine: 'Terminé',
 }
 
-function mapPaymentEncaisse(raw: unknown): 'encaisse' | 'attente' {
-  const value = String(raw ?? '')
-    .toLowerCase()
-    .trim()
-  if (value.includes('pay') || value === 'paid' || value.includes('encaiss')) return 'encaisse'
+function mapFactureEncaisse(raw: unknown): 'encaisse' | 'attente' {
+  const value = String(raw ?? '').trim()
+  if (value === 'Payée') return 'encaisse'
   return 'attente'
 }
 
-function paymentDate(p: Record<string, unknown>): string {
-  return String(p.date_paiement ?? p.date ?? p.created_at ?? '').slice(0, 10)
+function facturationDateForMonth(p: Record<string, unknown>): string {
+  const paid = String(p.statut ?? '').trim() === 'Payée'
+  return String(paid ? p.date_paiement ?? p.date_emission : p.date_emission ?? p.created_at ?? '').slice(0, 10)
 }
 
 function monthKey(iso: string): string | null {
@@ -59,7 +58,7 @@ function PaymentsBarChart(props: { data: { key: string; label: string; total: nu
     <div
       className="flex min-h-[220px] items-end gap-1 overflow-x-auto pb-1 sm:gap-2"
       role="img"
-      aria-label="Paiements par mois"
+      aria-label="Encaissements par mois"
     >
       {props.data.map((d) => {
         const h =
@@ -98,19 +97,20 @@ export function AnalyticsPage(props: AnalyticsPageProps) {
 
     let encaisses = 0
     let enAttente = 0
-    for (const p of props.paiements) {
+    for (const p of props.facturation) {
       const row = p as Record<string, unknown>
-      const m = Number.isFinite(Number(row.montant)) ? Number(row.montant) : 0
-      if (mapPaymentEncaisse(row.statut ?? row.status) === 'encaisse') encaisses += m
+      const m = Number.isFinite(Number(row.montant_ttc)) ? Number(row.montant_ttc) : 0
+      if (mapFactureEncaisse(row.statut) === 'encaisse') encaisses += m
       else enAttente += m
     }
 
     const monthTotals = new Map<string, number>()
-    for (const p of props.paiements) {
+    for (const p of props.facturation) {
       const row = p as Record<string, unknown>
-      const mk = monthKey(paymentDate(row))
+      if (mapFactureEncaisse(row.statut) !== 'encaisse') continue
+      const mk = monthKey(facturationDateForMonth(row))
       if (!mk) continue
-      const m = Number.isFinite(Number(row.montant)) ? Number(row.montant) : 0
+      const m = Number.isFinite(Number(row.montant_ttc)) ? Number(row.montant_ttc) : 0
       monthTotals.set(mk, (monthTotals.get(mk) ?? 0) + m)
     }
 
@@ -128,7 +128,7 @@ export function AnalyticsPage(props: AnalyticsPageProps) {
     }
 
     return { totalClients, chantierBuckets, encaisses, enAttente, months }
-  }, [props.clients, props.chantiers, props.paiements])
+  }, [props.clients, props.chantiers, props.facturation])
 
   if (props.loading) {
     return (
@@ -142,7 +142,7 @@ export function AnalyticsPage(props: AnalyticsPageProps) {
     <div className="space-y-5">
       <section className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]">
         <h1 className="text-[20px] font-semibold tracking-tight">Analytics</h1>
-        <p className="mt-1 text-sm text-text-muted">Indicateurs calculés à partir des tables Supabase (clients, chantiers, paiements).</p>
+        <p className="mt-1 text-sm text-text-muted">Indicateurs calculés à partir des tables Supabase (clients, chantiers, facturation).</p>
       </section>
 
       <section className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]">
@@ -167,12 +167,12 @@ export function AnalyticsPage(props: AnalyticsPageProps) {
       </section>
 
       <section className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]">
-        <h2 className="text-sm font-semibold text-text-muted">Paiements</h2>
+        <h2 className="text-sm font-semibold text-text-muted">Facturation</h2>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="rounded-[12px] border border-success/30 bg-success/10 p-4">
             <div className="text-xs font-semibold text-text-muted">Encaissés</div>
             <div className="mt-2 text-2xl font-bold tabular-nums text-text">{formatEUR(stats.encaisses)}</div>
-            <div className="mt-1 text-xs text-text-muted">Montants au statut « payé »</div>
+            <div className="mt-1 text-xs text-text-muted">Montants au statut « Payée »</div>
           </div>
           <div className="rounded-[12px] border border-warning/30 bg-warning/10 p-4">
             <div className="text-xs font-semibold text-text-muted">En attente</div>
@@ -183,7 +183,7 @@ export function AnalyticsPage(props: AnalyticsPageProps) {
       </section>
 
       <section className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]">
-        <h2 className="text-sm font-semibold text-text-muted">Paiements par mois (12 derniers mois)</h2>
+        <h2 className="text-sm font-semibold text-text-muted">Encaissements par mois (12 derniers mois)</h2>
         <div className="mt-4">
           <PaymentsBarChart data={stats.months} />
         </div>

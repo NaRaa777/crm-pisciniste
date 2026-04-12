@@ -32,7 +32,7 @@ export function ClientsPage(props: {
 
   async function handleDelete(id: string) {
     setDeletingId(id)
-    await supabase.from('paiements').delete().eq('client_id', id)
+    await supabase.from('facturation').delete().eq('client_id', id)
     await supabase.from('chantiers').delete().eq('client_id', id)
     const { error } = await supabase.from('clients').delete().eq('id', id)
     setDeletingId(null)

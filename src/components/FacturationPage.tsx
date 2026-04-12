@@ -1,19 +1,7 @@
-/**
- * Données chargées via `useDevis()` (lib/useSupabaseData) avec jointures clients / chantiers.
- */
 import { useState } from 'react'
-import { exportDevisToPdf } from '../lib/pdfExport'
+import { exportFactureToPdf } from '../lib/pdfExport'
 import { supabase } from '../lib/supabase'
-import { createFactureFromDevisRow } from './FactureForm'
-import { devisRowToEditPayload, type DevisEditPayload } from './DevisForm'
-
-/** Devis prêts à être facturés : Envoyé, Signé, ou Accepté (équivalent « signé »). */
-function canConvertDevisStatut(raw: unknown): boolean {
-  const k = String(raw ?? '')
-    .trim()
-    .toLowerCase()
-  return k === 'envoye' || k === 'signe' || k === 'accepte'
-}
+import { factureRowToEditPayload, type FactureEditPayload } from './FactureForm'
 
 const eur = new Intl.NumberFormat('fr-FR', {
   style: 'currency',
@@ -21,21 +9,6 @@ const eur = new Intl.NumberFormat('fr-FR', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
-
-const STATUT_LABELS: Record<string, string> = {
-  brouillon: 'Brouillon',
-  envoye: 'Envoyé',
-  accepte: 'Accepté',
-  signe: 'Signé',
-  converti: 'Converti',
-  refuse: 'Refusé',
-  annule: 'Annulé',
-}
-
-function cellText(value: unknown): string {
-  if (value == null || value === '') return '—'
-  return String(value)
-}
 
 function formatDate(raw: unknown): string {
   const s = String(raw ?? '').slice(0, 10)
@@ -57,109 +30,114 @@ function chantierTitre(row: Record<string, unknown>): string {
   return '—'
 }
 
-function statutLabel(raw: unknown): string {
-  const k = String(raw ?? 'brouillon').trim().toLowerCase()
-  return STATUT_LABELS[k] ?? cellText(raw)
+function statutFactureAffiche(row: Record<string, unknown>): string {
+  const s = String(row.statut ?? 'En attente').trim()
+  if (s === 'Payée') return 'Payée'
+  const due = String(row.date_echeance ?? '').slice(0, 10)
+  const today = new Date().toISOString().slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(due) && due < today) return 'En retard'
+  if (s === 'En retard') return 'En retard'
+  return 'En attente'
 }
 
-export function DevisPage(props: {
-  devis: Record<string, unknown>[]
+export function FacturationPage(props: {
+  facturation: Record<string, unknown>[]
   loading: boolean
   onRefresh: () => void
-  onEditDevis: (d: DevisEditPayload) => void
-  onNouveauDevis: () => void
-  /** Après création automatique de la facture (rafraîchir + aller sur Facturation). */
-  onApresConversionFacture?: () => void
+  onEditFacture: (f: FactureEditPayload) => void
+  onNouvelleFacture: () => void
 }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [convertingId, setConvertingId] = useState<string | null>(null)
+  const [payingId, setPayingId] = useState<string | null>(null)
 
-  function toEditPayload(row: Record<string, unknown>): DevisEditPayload | null {
-    return devisRowToEditPayload(row)
+  function toEditPayload(row: Record<string, unknown>): FactureEditPayload | null {
+    return factureRowToEditPayload(row)
+  }
+
+  async function handleMarquerPayee(id: string) {
+    setPayingId(id)
+    const today = new Date().toISOString().slice(0, 10)
+    const { error } = await supabase
+      .from('facturation')
+      .update({ statut: 'Payée', date_paiement: today })
+      .eq('id', id)
+    setPayingId(null)
+    if (error) {
+      console.error(error)
+      alert(error.message || 'Impossible de mettre à jour la facture.')
+      return
+    }
+    props.onRefresh()
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm('Supprimer ce devis ?')) return
+    if (!window.confirm('Supprimer cette facture ?')) return
     setDeletingId(id)
-    const { error } = await supabase.from('devis').delete().eq('id', id)
+    const { error } = await supabase.from('facturation').delete().eq('id', id)
     setDeletingId(null)
     if (error) {
       console.error(error)
-      alert(error.message || 'Impossible de supprimer le devis.')
+      alert(error.message || 'Impossible de supprimer la facture.')
       return
     }
     props.onRefresh()
-  }
-
-  async function handleConvertirEnFacture(row: Record<string, unknown>) {
-    const id = row.id != null ? String(row.id) : ''
-    if (!id) return
-    setConvertingId(id)
-    const result = await createFactureFromDevisRow(row)
-    setConvertingId(null)
-    if (!result.ok) {
-      alert(result.message)
-      return
-    }
-    props.onRefresh()
-    props.onApresConversionFacture?.()
   }
 
   return (
     <section
-      aria-label="Liste des devis"
+      aria-label="Facturation"
       className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-[20px] font-semibold tracking-tight">Devis</h1>
-          <p className="mt-1 text-sm text-text-muted">Devis enregistrés (table Supabase « devis »).</p>
+          <h1 className="text-[20px] font-semibold tracking-tight">Facturation</h1>
+          <p className="mt-1 text-sm text-text-muted">Factures (table Supabase « facturation »).</p>
         </div>
         <button
           type="button"
-          onClick={props.onNouveauDevis}
+          onClick={props.onNouvelleFacture}
           className="h-10 shrink-0 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98]"
         >
-          Nouveau devis
+          Nouvelle facture
         </button>
       </div>
 
       <div className="mt-5 overflow-x-auto rounded-[12px] border border-border">
-        <table className="w-full min-w-[960px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
           <thead className="bg-black-contrast/25 text-xs font-semibold text-text-muted">
             <tr>
               <th className="px-3 py-3">N°</th>
               <th className="px-3 py-3">Client</th>
               <th className="px-3 py-3">Chantier</th>
-              <th className="px-3 py-3">Montant HT</th>
               <th className="px-3 py-3">Montant TTC</th>
-              <th className="px-3 py-3">Date d’émission</th>
               <th className="px-3 py-3">Statut</th>
+              <th className="px-3 py-3">Échéance</th>
               <th className="px-3 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {props.loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-text-muted">
+                <td colSpan={7} className="px-4 py-8 text-center text-text-muted">
                   Chargement…
                 </td>
               </tr>
-            ) : props.devis.length === 0 ? (
+            ) : props.facturation.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-text-muted">
-                  Aucun devis pour le moment.
+                <td colSpan={7} className="px-4 py-8 text-center text-text-muted">
+                  Aucune facture pour le moment.
                 </td>
               </tr>
             ) : (
-              props.devis.map((row, idx) => {
+              props.facturation.map((row, idx) => {
                 const id = row.id != null ? String(row.id) : `row-${idx}`
                 const editPayload = toEditPayload(row)
-                const busy = deletingId === id || convertingId === id
-                const ht = Number(row.montant_ht)
+                const busy = deletingId === id
+                const paying = payingId === id
                 const ttc = Number(row.montant_ttc)
                 const num = String(row.numero ?? '').trim()
-                const showConvert = canConvertDevisStatut(row.statut)
+                const label = statutFactureAffiche(row)
+                const isPayee = String(row.statut ?? '').trim() === 'Payée'
 
                 return (
                   <tr key={id} className="bg-surface hover:bg-black-contrast/10">
@@ -167,37 +145,34 @@ export function DevisPage(props: {
                     <td className="px-3 py-3 align-top font-medium text-text">{clientNom(row)}</td>
                     <td className="px-3 py-3 align-top text-text-muted">{chantierTitre(row)}</td>
                     <td className="px-3 py-3 align-top tabular-nums text-text">
-                      {Number.isFinite(ht) ? eur.format(ht) : '—'}
-                    </td>
-                    <td className="px-3 py-3 align-top tabular-nums text-text">
                       {Number.isFinite(ttc) ? eur.format(ttc) : '—'}
                     </td>
-                    <td className="px-3 py-3 align-top text-text-muted tabular-nums">{formatDate(row.date_emission)}</td>
-                    <td className="px-3 py-3 align-top text-text-muted">{statutLabel(row.statut)}</td>
+                    <td className="px-3 py-3 align-top text-text-muted">{label}</td>
+                    <td className="px-3 py-3 align-top text-text-muted tabular-nums">{formatDate(row.date_echeance)}</td>
                     <td className="px-3 py-3 align-top">
                       <div className="flex flex-wrap justify-end gap-2">
-                        {showConvert ? (
+                        <button
+                          type="button"
+                          onClick={() => exportFactureToPdf(row)}
+                          disabled={busy || paying}
+                          className="rounded-[8px] border border-primary/35 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
+                        >
+                          Exporter PDF
+                        </button>
+                        {!isPayee ? (
                           <button
                             type="button"
-                            onClick={() => void handleConvertirEnFacture(row)}
-                            disabled={busy}
-                            className="rounded-[8px] border border-accent/35 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-accent/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
+                            onClick={() => handleMarquerPayee(id)}
+                            disabled={busy || paying}
+                            className="rounded-[8px] border border-emerald-500/35 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                           >
-                            {convertingId === id ? 'Conversion…' : 'Convertir en facture'}
+                            {paying ? '…' : 'Marquer comme payée'}
                           </button>
                         ) : null}
                         <button
                           type="button"
-                          onClick={() => exportDevisToPdf(row)}
-                          disabled={busy}
-                          className="rounded-[8px] border border-primary/35 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
-                        >
-                          Exporter en PDF
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => editPayload && props.onEditDevis(editPayload)}
-                          disabled={!editPayload || busy}
+                          onClick={() => editPayload && props.onEditFacture(editPayload)}
+                          disabled={!editPayload || busy || paying}
                           className="rounded-[8px] border border-border bg-black-contrast/20 px-3 py-1.5 text-xs font-semibold outline-none transition hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                         >
                           Modifier
@@ -205,7 +180,7 @@ export function DevisPage(props: {
                         <button
                           type="button"
                           onClick={() => handleDelete(id)}
-                          disabled={busy}
+                          disabled={busy || paying}
                           className="rounded-[8px] border border-danger/35 bg-danger/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-danger/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                         >
                           {busy ? '…' : 'Supprimer'}
@@ -222,3 +197,5 @@ export function DevisPage(props: {
     </section>
   )
 }
+
+export default FacturationPage

@@ -47,27 +47,29 @@ export function useChantiers() {
   return { chantiers, loading, refetch: () => fetchChantiers(true) }
 }
 
-export function usePaiements() {
-  const [paiements, setPaiements] = useState<Record<string, unknown>[]>([])
+/** Facturation unifiée (table `facturation`). */
+export function useFacturation() {
+  const [facturation, setFacturation] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
 
-  const fetchPaiements = useCallback((silent = false) => {
+  const fetchFacturation = useCallback((silent = false) => {
     if (!silent) setLoading(true)
     void supabase
-      .from('paiements')
-      .select('*, clients(nom, email), chantiers(titre)')
+      .from('facturation')
+      .select('*, clients(nom, entreprise, email, telephone), chantiers(titre), devis(numero)')
+      .order('date_emission', { ascending: false })
       .then(({ data, error }) => {
         if (error) console.error(error)
-        else setPaiements((data as Record<string, unknown>[]) || [])
+        else setFacturation((data as Record<string, unknown>[]) || [])
         if (!silent) setLoading(false)
       })
   }, [])
 
   useEffect(() => {
-    queueMicrotask(() => fetchPaiements(false))
-  }, [fetchPaiements])
+    queueMicrotask(() => fetchFacturation(false))
+  }, [fetchFacturation])
 
-  return { paiements, loading, refetch: () => fetchPaiements(true) }
+  return { facturation, loading, refetch: () => fetchFacturation(true) }
 }
 
 export function useTaches() {
@@ -116,3 +118,4 @@ export function useDevis() {
 
   return { devis, loading, refetch: () => fetchDevis(true) }
 }
+

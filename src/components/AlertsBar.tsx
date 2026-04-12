@@ -29,7 +29,7 @@ export function AlertsBar(props: { lateTasks: number; pendingAmount: number }) {
             <CreditCard className="h-5 w-5 text-primary" strokeWidth={1.75} />
           </div>
           <div className="text-left md:text-right">
-            <div className="text-sm font-semibold">Paiements en attente</div>
+            <div className="text-sm font-semibold">Montants en attente</div>
             <div className="mt-1 text-sm text-text-muted">
               Montant total :{' '}
               <span className="font-bold tabular-nums text-text">{formatEUR(props.pendingAmount)}</span>
