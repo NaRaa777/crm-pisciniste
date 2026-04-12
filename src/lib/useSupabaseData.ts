@@ -55,7 +55,7 @@ export function usePaiements() {
     if (!silent) setLoading(true)
     void supabase
       .from('paiements')
-      .select('*, clients(nom), chantiers(titre)')
+      .select('*, clients(nom, email), chantiers(titre)')
       .then(({ data, error }) => {
         if (error) console.error(error)
         else setPaiements((data as Record<string, unknown>[]) || [])

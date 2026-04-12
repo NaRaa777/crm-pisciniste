@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { exportPaiementsToExcel } from '../lib/excelExport'
+import { isPaymentReminderEligible, sendPaymentReminderEmail } from '../lib/emailReminder'
 import { supabase } from '../lib/supabase'
 import type { PaiementEditPayload } from './PaiementForm'
 
@@ -50,6 +51,12 @@ function chantierTitre(row: Record<string, unknown>): string {
   return '—'
 }
 
+function clientEmail(row: Record<string, unknown>): string | null {
+  const nested = row.clients as { email?: string } | null | undefined
+  const e = nested?.email?.trim()
+  return e || null
+}
+
 export type PaiementsPageProps = {
   paiements: Record<string, unknown>[]
   loading: boolean
@@ -60,6 +67,7 @@ export type PaiementsPageProps = {
 
 export function PaiementsPage(props: PaiementsPageProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [reminderId, setReminderId] = useState<string | null>(null)
 
   async function handleDelete(id: string) {
     setDeletingId(id)
@@ -71,6 +79,34 @@ export function PaiementsPage(props: PaiementsPageProps) {
       return
     }
     props.onRefresh()
+  }
+
+  async function handleSendReminder(row: Record<string, unknown>, id: string) {
+    const to = clientEmail(row)
+    if (!to) {
+      alert('Aucune adresse email pour ce client. Ajoute-la dans la fiche client.')
+      return
+    }
+    const montant = Number(row.montant)
+    const dateRaw = row.date_paiement ?? row.date
+    const dateDisplay = formatDateDisplay(dateRaw)
+    const dateFacturation = dateDisplay === '—' ? 'Non renseignée' : dateDisplay
+
+    setReminderId(id)
+    const result = await sendPaymentReminderEmail({
+      to,
+      chantierNom: chantierTitre(row),
+      clientNom: clientNom(row),
+      montantDu: Number.isFinite(montant) ? montant : 0,
+      dateFacturation,
+    })
+    setReminderId(null)
+
+    if (result.ok) {
+      alert('Rappel envoyé.')
+    } else {
+      alert(result.error)
+    }
   }
 
   function toEditPayload(row: Record<string, unknown>): PaiementEditPayload | null {
@@ -148,6 +184,8 @@ export function PaiementsPage(props: PaiementsPageProps) {
                 const id = row.id != null ? String(row.id) : `row-${idx}`
                 const editPayload = toEditPayload(row)
                 const busy = deletingId === id
+                const reminderBusy = reminderId === id
+                const showReminder = isPaymentReminderEligible(row.statut)
 
                 return (
                   <tr key={id} className="bg-surface hover:bg-black-contrast/10">
@@ -160,6 +198,16 @@ export function PaiementsPage(props: PaiementsPageProps) {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap justify-end gap-2">
+                        {showReminder ? (
+                          <button
+                            type="button"
+                            onClick={() => handleSendReminder(row, id)}
+                            disabled={busy || reminderBusy}
+                            className="rounded-[8px] border border-primary/35 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
+                          >
+                            {reminderBusy ? 'Envoi…' : 'Envoyer un rappel'}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => editPayload && props.onEditPaiement(editPayload)}
