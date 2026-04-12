@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNetworkStatus } from '../lib/networkStatus'
 import { supabase } from '../lib/supabase'
 import type { TacheEditPayload } from './TacheForm'
 
@@ -79,6 +80,8 @@ export type PlanningPageProps = {
 }
 
 export function PlanningPage(props: PlanningPageProps) {
+  const { online } = useNetworkStatus()
+  const readOnly = !online
   const [filter, setFilter] = useState<PlanningDateFilter>('week')
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
@@ -153,7 +156,8 @@ export function PlanningPage(props: PlanningPageProps) {
           <button
             type="button"
             onClick={props.onAddTache}
-            className="h-10 shrink-0 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98]"
+            disabled={readOnly}
+            className="h-10 shrink-0 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Ajouter une tâche
           </button>
@@ -210,7 +214,7 @@ export function PlanningPage(props: PlanningPageProps) {
                         <button
                           type="button"
                           onClick={() => editPayload && props.onEditTache(editPayload)}
-                          disabled={!editPayload || busy}
+                          disabled={!editPayload || busy || readOnly}
                           className="rounded-[8px] border border-border bg-black-contrast/20 px-3 py-1.5 text-xs font-semibold outline-none transition hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                         >
                           Modifier
@@ -218,7 +222,7 @@ export function PlanningPage(props: PlanningPageProps) {
                         <button
                           type="button"
                           onClick={() => handleDelete(id)}
-                          disabled={busy}
+                          disabled={busy || readOnly}
                           className="rounded-[8px] border border-danger/35 bg-danger/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-danger/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                         >
                           {busy ? '…' : 'Supprimer'}

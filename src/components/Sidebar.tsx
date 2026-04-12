@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { useNetworkStatus } from '../lib/networkStatus'
 import type { LucideIcon } from 'lucide-react'
 import {
   BarChart3,
@@ -39,6 +40,7 @@ export type SidebarProps = {
 }
 
 export function Sidebar(props: SidebarProps) {
+  const { online } = useNetworkStatus()
   const quickActionsLabelId = useId()
 
   return (
@@ -107,7 +109,8 @@ export function Sidebar(props: SidebarProps) {
                   type="button"
                   onClick={props.onQuickQuote}
                   title="Devis rapide (Ctrl+D)"
-                  className="group flex w-full items-center gap-3 rounded-[10px] border border-primary/30 bg-primary/15 px-3 py-2 text-left text-sm font-semibold text-text outline-none transition duration-200 ease-out hover:bg-primary/25 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98]"
+                  disabled={!online}
+                  className="group flex w-full items-center gap-3 rounded-[10px] border border-primary/30 bg-primary/15 px-3 py-2 text-left text-sm font-semibold text-text outline-none transition duration-200 ease-out hover:bg-primary/25 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <FileText
                     className="h-[18px] w-[18px] shrink-0 text-primary"
@@ -121,7 +124,8 @@ export function Sidebar(props: SidebarProps) {
                   type="button"
                   onClick={() => props.onQuickAddClient?.()}
                   title="Ajouter un client (Ctrl+P)"
-                  className="group flex w-full items-center gap-3 rounded-[10px] border border-accent/40 bg-gradient-to-br from-accent/10 to-primary/5 px-3 py-2 text-left text-sm font-semibold text-text outline-none transition duration-200 ease-out hover:border-accent/60 hover:from-accent/15 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98]"
+                  disabled={!online}
+                  className="group flex w-full items-center gap-3 rounded-[10px] border border-accent/40 bg-gradient-to-br from-accent/10 to-primary/5 px-3 py-2 text-left text-sm font-semibold text-text outline-none transition duration-200 ease-out hover:border-accent/60 hover:from-accent/15 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <UserPlus
                     className="h-[18px] w-[18px] shrink-0 text-accent"

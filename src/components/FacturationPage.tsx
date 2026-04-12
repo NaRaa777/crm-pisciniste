@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNetworkStatus } from '../lib/networkStatus'
 import { exportFactureToPdf } from '../lib/pdfExport'
 import { supabase } from '../lib/supabase'
 import { factureRowToEditPayload, type FactureEditPayload } from './FactureForm'
@@ -47,6 +48,8 @@ export function FacturationPage(props: {
   onEditFacture: (f: FactureEditPayload) => void
   onNouvelleFacture: () => void
 }) {
+  const { online } = useNetworkStatus()
+  const readOnly = !online
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [payingId, setPayingId] = useState<string | null>(null)
 
@@ -96,7 +99,8 @@ export function FacturationPage(props: {
         <button
           type="button"
           onClick={props.onNouvelleFacture}
-          className="h-10 shrink-0 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98]"
+          disabled={readOnly}
+          className="h-10 shrink-0 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Nouvelle facture
         </button>
@@ -163,7 +167,7 @@ export function FacturationPage(props: {
                           <button
                             type="button"
                             onClick={() => handleMarquerPayee(id)}
-                            disabled={busy || paying}
+                            disabled={busy || paying || readOnly}
                             className="rounded-[8px] border border-emerald-500/35 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                           >
                             {paying ? '…' : 'Marquer comme payée'}
@@ -172,7 +176,7 @@ export function FacturationPage(props: {
                         <button
                           type="button"
                           onClick={() => editPayload && props.onEditFacture(editPayload)}
-                          disabled={!editPayload || busy || paying}
+                          disabled={!editPayload || busy || paying || readOnly}
                           className="rounded-[8px] border border-border bg-black-contrast/20 px-3 py-1.5 text-xs font-semibold outline-none transition hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                         >
                           Modifier
@@ -180,7 +184,7 @@ export function FacturationPage(props: {
                         <button
                           type="button"
                           onClick={() => handleDelete(id)}
-                          disabled={busy || paying}
+                          disabled={busy || paying || readOnly}
                           className="rounded-[8px] border border-danger/35 bg-danger/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-danger/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                         >
                           {busy ? '…' : 'Supprimer'}

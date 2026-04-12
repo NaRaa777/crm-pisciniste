@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNetworkStatus } from '../lib/networkStatus'
 import { exportChantiersToExcel } from '../lib/excelExport'
 import { supabase } from '../lib/supabase'
 import type { ChantierEditPayload } from './ChantierForm'
@@ -44,6 +45,8 @@ export type ChantiersPageProps = {
 }
 
 export function ChantiersPage(props: ChantiersPageProps) {
+  const { online } = useNetworkStatus()
+  const readOnly = !online
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   async function handleDelete(id: string) {
@@ -105,7 +108,8 @@ export function ChantiersPage(props: ChantiersPageProps) {
           <button
             type="button"
             onClick={props.onAddChantier}
-            className="h-10 shrink-0 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98]"
+            disabled={readOnly}
+            className="h-10 shrink-0 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Ajouter un chantier
           </button>
@@ -161,7 +165,7 @@ export function ChantiersPage(props: ChantiersPageProps) {
                         <button
                           type="button"
                           onClick={() => editPayload && props.onEditChantier(editPayload)}
-                          disabled={!editPayload || busy}
+                          disabled={!editPayload || busy || readOnly}
                           className="rounded-[8px] border border-border bg-black-contrast/20 px-3 py-1.5 text-xs font-semibold outline-none transition hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                         >
                           Modifier
@@ -169,7 +173,7 @@ export function ChantiersPage(props: ChantiersPageProps) {
                         <button
                           type="button"
                           onClick={() => handleDelete(id)}
-                          disabled={busy}
+                          disabled={busy || readOnly}
                           className="rounded-[8px] border border-danger/35 bg-danger/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-danger/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                         >
                           {busy ? '…' : 'Supprimer'}

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useNetworkStatus } from '../lib/networkStatus'
 import { X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -23,6 +24,8 @@ export type ChantierFormProps = {
 }
 
 export function ChantierForm(props: ChantierFormProps) {
+  const { online } = useNetworkStatus()
+  const readOnly = !online
   const [titre, setTitre] = useState(() => props.editingChantier?.titre ?? '')
   const [clientId, setClientId] = useState(() => props.editingChantier?.client_id ?? '')
   const [statut, setStatut] = useState(() => props.editingChantier?.statut ?? '')
@@ -38,6 +41,7 @@ export function ChantierForm(props: ChantierFormProps) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (readOnly) return
     const t = titre.trim()
     if (!t) {
       setFormError('Le titre est obligatoire.')
@@ -94,6 +98,9 @@ export function ChantierForm(props: ChantierFormProps) {
             <p className="mt-1 text-sm text-text-muted">
               {isEdit ? 'Mets à jour les informations du chantier.' : 'Renseigne les informations du chantier.'}
             </p>
+            {readOnly ? (
+              <p className="mt-2 text-sm text-warning">Reconnectez-vous pour modifier les données.</p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -119,7 +126,7 @@ export function ChantierForm(props: ChantierFormProps) {
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition placeholder:text-text-muted/60 focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
               placeholder="Rénovation cuisine"
               required
-              disabled={submitting}
+              disabled={submitting || readOnly}
             />
           </div>
           <div>
@@ -132,7 +139,7 @@ export function ChantierForm(props: ChantierFormProps) {
               onChange={(e) => setClientId(e.target.value)}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
               required
-              disabled={submitting}
+              disabled={submitting || readOnly}
             >
               <option value="">— Choisir un client —</option>
               {props.clients.map((c) => (
@@ -153,7 +160,7 @@ export function ChantierForm(props: ChantierFormProps) {
               onChange={(e) => setStatut(e.target.value)}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition placeholder:text-text-muted/60 focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
               placeholder="En cours, Terminé…"
-              disabled={submitting}
+              disabled={submitting || readOnly}
             />
           </div>
           <div>
@@ -167,7 +174,7 @@ export function ChantierForm(props: ChantierFormProps) {
               onChange={(e) => setResponsable(e.target.value)}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition placeholder:text-text-muted/60 focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
               placeholder="Nom du responsable"
-              disabled={submitting}
+              disabled={submitting || readOnly}
             />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -181,7 +188,7 @@ export function ChantierForm(props: ChantierFormProps) {
                 value={dateDebut}
                 onChange={(e) => setDateDebut(e.target.value)}
                 className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
-                disabled={submitting}
+                disabled={submitting || readOnly}
               />
             </div>
             <div>
@@ -194,7 +201,7 @@ export function ChantierForm(props: ChantierFormProps) {
                 value={dateFin}
                 onChange={(e) => setDateFin(e.target.value)}
                 className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
-                disabled={submitting}
+                disabled={submitting || readOnly}
               />
             </div>
           </div>
@@ -217,7 +224,7 @@ export function ChantierForm(props: ChantierFormProps) {
             <button
               type="submit"
               className="h-11 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98] disabled:opacity-60"
-              disabled={submitting}
+              disabled={submitting || readOnly}
             >
               {submitting ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Enregistrer'}
             </button>

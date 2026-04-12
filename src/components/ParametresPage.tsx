@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useNetworkStatus } from '../lib/networkStatus'
 import { Moon, Sun } from 'lucide-react'
 import type { ThemeMode } from './types'
 
@@ -12,12 +13,15 @@ export type ParametresPageProps = {
 }
 
 export function ParametresPage(props: ParametresPageProps) {
+  const { online } = useNetworkStatus()
+  const readOnly = !online
   const [name, setName] = useState(() => props.initialName)
   const [email, setEmail] = useState(() => props.initialEmail)
   const [saved, setSaved] = useState(false)
 
   function handleSave(e: FormEvent) {
     e.preventDefault()
+    if (!online) return
     props.onSaveProfile({ name: name.trim(), email: email.trim() })
     setSaved(true)
     window.setTimeout(() => setSaved(false), 2500)
@@ -48,7 +52,8 @@ export function ParametresPage(props: ParametresPageProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
-              className="mt-1.5 h-11 w-full max-w-md rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none ring-primary/30 placeholder:text-text-muted focus:border-primary/40 focus:ring-2"
+              disabled={readOnly}
+              className="mt-1.5 h-11 w-full max-w-md rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none ring-primary/30 placeholder:text-text-muted focus:border-primary/40 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
               placeholder="Votre nom"
             />
           </div>
@@ -62,7 +67,8 @@ export function ParametresPage(props: ParametresPageProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
-              className="mt-1.5 h-11 w-full max-w-md rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none ring-primary/30 placeholder:text-text-muted focus:border-primary/40 focus:ring-2"
+              disabled={readOnly}
+              className="mt-1.5 h-11 w-full max-w-md rounded-[10px] border border-border bg-black-contrast/25 px-3 text-sm text-text outline-none ring-primary/30 placeholder:text-text-muted focus:border-primary/40 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
               placeholder="vous@exemple.com"
             />
           </div>
@@ -104,7 +110,8 @@ export function ParametresPage(props: ParametresPageProps) {
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            className="h-11 rounded-[10px] bg-primary px-5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(45,107,255,0.25)] outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60"
+            disabled={readOnly}
+            className="h-11 rounded-[10px] bg-primary px-5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(45,107,255,0.25)] outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Enregistrer le profil
           </button>

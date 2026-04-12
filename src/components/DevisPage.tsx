@@ -2,6 +2,7 @@
  * Données chargées via `useDevis()` (lib/useSupabaseData) avec jointures clients / chantiers.
  */
 import { useState } from 'react'
+import { useNetworkStatus } from '../lib/networkStatus'
 import { exportDevisToPdf } from '../lib/pdfExport'
 import { supabase } from '../lib/supabase'
 import { createFactureFromDevisRow } from './FactureForm'
@@ -71,6 +72,8 @@ export function DevisPage(props: {
   /** Après création automatique de la facture (rafraîchir + aller sur Facturation). */
   onApresConversionFacture?: () => void
 }) {
+  const { online } = useNetworkStatus()
+  const readOnly = !online
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [convertingId, setConvertingId] = useState<string | null>(null)
 
@@ -118,7 +121,8 @@ export function DevisPage(props: {
         <button
           type="button"
           onClick={props.onNouveauDevis}
-          className="h-10 shrink-0 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98]"
+          disabled={readOnly}
+          className="h-10 shrink-0 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Nouveau devis
         </button>
@@ -180,7 +184,7 @@ export function DevisPage(props: {
                           <button
                             type="button"
                             onClick={() => void handleConvertirEnFacture(row)}
-                            disabled={busy}
+                            disabled={busy || readOnly}
                             className="rounded-[8px] border border-accent/35 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-accent/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                           >
                             {convertingId === id ? 'Conversion…' : 'Convertir en facture'}
@@ -197,7 +201,7 @@ export function DevisPage(props: {
                         <button
                           type="button"
                           onClick={() => editPayload && props.onEditDevis(editPayload)}
-                          disabled={!editPayload || busy}
+                          disabled={!editPayload || busy || readOnly}
                           className="rounded-[8px] border border-border bg-black-contrast/20 px-3 py-1.5 text-xs font-semibold outline-none transition hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                         >
                           Modifier
@@ -205,7 +209,7 @@ export function DevisPage(props: {
                         <button
                           type="button"
                           onClick={() => handleDelete(id)}
-                          disabled={busy}
+                          disabled={busy || readOnly}
                           className="rounded-[8px] border border-danger/35 bg-danger/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-danger/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                         >
                           {busy ? '…' : 'Supprimer'}

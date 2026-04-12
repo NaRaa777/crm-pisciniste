@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useNetworkStatus } from '../lib/networkStatus'
 import { Plus, Trash2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { devisRowToEditPayload } from './DevisForm'
@@ -371,6 +372,8 @@ function initialLinesFromPayload(ed: FactureEditPayload | null | undefined): Lig
 }
 
 export function FactureForm(props: FactureFormProps) {
+  const { online } = useNetworkStatus()
+  const readOnly = !online
   const isEdit = Boolean(props.editingFacture?.id)
   const [numero, setNumero] = useState(() => props.editingFacture?.numero ?? '')
   const [devisId, setDevisId] = useState<string | null>(() => props.editingFacture?.devis_id ?? null)
@@ -457,6 +460,7 @@ export function FactureForm(props: FactureFormProps) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (readOnly) return
     if (!entreprise.nom.trim()) {
       setFormError('Indique le nom de ton entreprise.')
       return
@@ -558,6 +562,9 @@ export function FactureForm(props: FactureFormProps) {
               Numéro :{' '}
               <span className="font-mono font-semibold text-text">{numero || '…'}</span>
             </p>
+            {readOnly ? (
+              <p className="mt-2 text-sm text-warning">Reconnectez-vous pour modifier les données.</p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -570,6 +577,7 @@ export function FactureForm(props: FactureFormProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-6">
+          <div className={readOnly ? 'pointer-events-none select-none' : ''}>
           <section className="rounded-[12px] border border-border bg-black-contrast/10 p-4">
             <h3 className="text-sm font-semibold text-text">Votre entreprise</h3>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -871,6 +879,7 @@ export function FactureForm(props: FactureFormProps) {
               </select>
             </div>
           </div>
+          </div>
 
           {formError ? (
             <p className="rounded-[10px] border border-danger/35 bg-danger/10 px-3 py-2 text-sm text-text" role="alert">
@@ -889,7 +898,7 @@ export function FactureForm(props: FactureFormProps) {
             </button>
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || readOnly}
               className="h-11 rounded-[10px] bg-primary px-5 text-sm font-semibold text-white outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
             >
               {submitting ? 'Enregistrement…' : isEdit ? 'Enregistrer les modifications' : 'Enregistrer la facture'}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNetworkStatus } from '../lib/networkStatus'
 import { exportClientsToExcel } from '../lib/excelExport'
 import { exportClientsListToPdf } from '../lib/pdfExport'
 import { supabase } from '../lib/supabase'
@@ -28,7 +29,9 @@ export function ClientsPage(props: {
   onRefresh: () => void
   onEditClient: (client: ClientEditPayload) => void
 }) {
+  const { online } = useNetworkStatus()
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const readOnly = !online
 
   async function handleDelete(id: string) {
     setDeletingId(id)
@@ -129,7 +132,7 @@ export function ClientsPage(props: {
                         <button
                           type="button"
                           onClick={() => editPayload && props.onEditClient(editPayload)}
-                          disabled={!editPayload || busy}
+                          disabled={!editPayload || busy || readOnly}
                           className="rounded-[8px] border border-border bg-black-contrast/20 px-3 py-1.5 text-xs font-semibold outline-none transition hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                         >
                           Modifier
@@ -137,7 +140,7 @@ export function ClientsPage(props: {
                         <button
                           type="button"
                           onClick={() => handleDelete(id)}
-                          disabled={busy}
+                          disabled={busy || readOnly}
                           className="rounded-[8px] border border-danger/35 bg-danger/10 px-3 py-1.5 text-xs font-semibold text-text outline-none transition hover:bg-danger/20 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-50"
                         >
                           {busy ? '…' : 'Supprimer'}

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useNetworkStatus } from '../lib/networkStatus'
 import { X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -18,6 +19,8 @@ type ClientFormProps = {
 }
 
 export function ClientForm(props: ClientFormProps) {
+  const { online } = useNetworkStatus()
+  const readOnly = !online
   const [nom, setNom] = useState(() => props.editingClient?.nom ?? '')
   const [entreprise, setEntreprise] = useState(() => props.editingClient?.entreprise ?? '')
   const [email, setEmail] = useState(() => props.editingClient?.email ?? '')
@@ -31,6 +34,7 @@ export function ClientForm(props: ClientFormProps) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (readOnly) return
     const n = nom.trim()
     if (!n) {
       setFormError('Le nom est obligatoire.')
@@ -79,6 +83,9 @@ export function ClientForm(props: ClientFormProps) {
             <p className="mt-1 text-sm text-text-muted">
               {isEdit ? 'Mets à jour les informations du contact.' : 'Renseigne les informations du contact.'}
             </p>
+            {readOnly ? (
+              <p className="mt-2 text-sm text-warning">Reconnectez-vous pour modifier les données.</p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -105,7 +112,7 @@ export function ClientForm(props: ClientFormProps) {
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition placeholder:text-text-muted/60 focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
               placeholder="Jean Dupont"
               required
-              disabled={submitting}
+              disabled={submitting || readOnly}
             />
           </div>
           <div>
@@ -120,7 +127,7 @@ export function ClientForm(props: ClientFormProps) {
               onChange={(e) => setEntreprise(e.target.value)}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition placeholder:text-text-muted/60 focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
               placeholder="SARL Exemple"
-              disabled={submitting}
+              disabled={submitting || readOnly}
             />
           </div>
           <div>
@@ -135,7 +142,7 @@ export function ClientForm(props: ClientFormProps) {
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition placeholder:text-text-muted/60 focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
               placeholder="contact@exemple.fr"
-              disabled={submitting}
+              disabled={submitting || readOnly}
             />
           </div>
           <div>
@@ -150,7 +157,7 @@ export function ClientForm(props: ClientFormProps) {
               onChange={(e) => setTelephone(e.target.value)}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition placeholder:text-text-muted/60 focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
               placeholder="06 12 34 56 78"
-              disabled={submitting}
+              disabled={submitting || readOnly}
             />
           </div>
 
@@ -172,7 +179,7 @@ export function ClientForm(props: ClientFormProps) {
             <button
               type="submit"
               className="h-11 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98] disabled:opacity-60"
-              disabled={submitting}
+              disabled={submitting || readOnly}
             >
               {submitting ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Enregistrer'}
             </button>

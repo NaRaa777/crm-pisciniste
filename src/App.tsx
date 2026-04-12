@@ -25,6 +25,7 @@ import { PlanningPage } from './components/PlanningPage'
 import { Sidebar } from './components/Sidebar'
 import { TacheForm, type TacheEditPayload } from './components/TacheForm'
 import { SiteTable } from './components/SiteTable'
+import { OfflineBanner } from './components/OfflineBanner'
 import { TopHeader } from './components/TopHeader'
 import type { AnalyticsPeriod, PaymentStatus, PlanningFilter, PlanningStatus, Priority, ThemeMode } from './components/types'
 import type { PlanningTask, SiteRow, TransactionRow } from './components/mockData'
@@ -49,6 +50,7 @@ import {
   pctChange,
 } from './lib/kpiMetrics'
 import { loadUserPrefs, saveUserPrefs } from './lib/userPrefs'
+import { useNetworkStatus } from './lib/networkStatus'
 import { supabase } from './lib/supabase'
 import { useChantiers, useClients, useDevis, useFacturation, useTaches } from './lib/useSupabaseData'
 
@@ -83,6 +85,7 @@ function facturationLabelParts(f: Record<string, unknown>): { client: string; si
 }
 
 function AuthenticatedApp() {
+  const { online } = useNetworkStatus()
   const { clients, loading: clientsLoading, refetch: refetchClients } = useClients()
   const { chantiers, loading: chantiersLoading, refetch: refetchChantiers } = useChantiers()
   const { taches, loading: tachesLoading, refetch: refetchTaches } = useTaches()
@@ -124,7 +127,7 @@ function AuthenticatedApp() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const mod = e.ctrlKey || e.metaKey
-      if (!mod) return
+      if (!mod || !online) return
       const k = e.key.toLowerCase()
       if (k === 'd') {
         e.preventDefault()
@@ -138,7 +141,7 @@ function AuthenticatedApp() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleQuickQuote])
+  }, [handleQuickQuote, online])
 
   const planningTasks = useMemo<PlanningTask[]>(() => {
     const mapStatus = (rawStatus: unknown): PlanningStatus => {
@@ -379,6 +382,7 @@ function AuthenticatedApp() {
 
   return (
     <div className="min-h-full bg-bg text-text">
+      {!online ? <OfflineBanner /> : null}
       <div className="flex min-h-full">
         <div className="hidden lg:block">
           <Sidebar

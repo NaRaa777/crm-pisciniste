@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useNetworkStatus } from '../lib/networkStatus'
 import { X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -22,6 +23,8 @@ export type TacheFormProps = {
 }
 
 export function TacheForm(props: TacheFormProps) {
+  const { online } = useNetworkStatus()
+  const readOnly = !online
   const [titre, setTitre] = useState(() => props.editingTache?.titre ?? '')
   const [chantierId, setChantierId] = useState(() => props.editingTache?.chantier_id ?? '')
   const [statut, setStatut] = useState(() => props.editingTache?.statut ?? '')
@@ -36,6 +39,7 @@ export function TacheForm(props: TacheFormProps) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (readOnly) return
     const t = titre.trim()
     if (!t) {
       setFormError('Le titre est obligatoire.')
@@ -92,6 +96,9 @@ export function TacheForm(props: TacheFormProps) {
             <p className="mt-1 text-sm text-text-muted">
               {isEdit ? 'Mets à jour le détail de la tâche.' : 'Planifie une nouvelle tâche.'}
             </p>
+            {readOnly ? (
+              <p className="mt-2 text-sm text-warning">Reconnectez-vous pour modifier les données.</p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -117,7 +124,7 @@ export function TacheForm(props: TacheFormProps) {
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition placeholder:text-text-muted/60 focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
               placeholder="Appel client, livraison…"
               required
-              disabled={submitting}
+              disabled={submitting || readOnly}
             />
           </div>
           <div>
@@ -130,7 +137,7 @@ export function TacheForm(props: TacheFormProps) {
               onChange={(e) => setChantierId(e.target.value)}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
               required
-              disabled={submitting}
+              disabled={submitting || readOnly}
             >
               <option value="">— Choisir un chantier —</option>
               {props.chantiers.map((c) => (
@@ -151,7 +158,7 @@ export function TacheForm(props: TacheFormProps) {
               onChange={(e) => setStatut(e.target.value)}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition placeholder:text-text-muted/60 focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
               placeholder="À faire, En cours…"
-              disabled={submitting}
+              disabled={submitting || readOnly}
             />
           </div>
           <div>
@@ -165,7 +172,7 @@ export function TacheForm(props: TacheFormProps) {
               onChange={(e) => setResponsable(e.target.value)}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition placeholder:text-text-muted/60 focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
               placeholder="Nom"
-              disabled={submitting}
+              disabled={submitting || readOnly}
             />
           </div>
           <div>
@@ -178,7 +185,7 @@ export function TacheForm(props: TacheFormProps) {
               value={dateEcheance}
               onChange={(e) => setDateEcheance(e.target.value)}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-border bg-black-contrast/15 px-3 text-sm text-text outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-accent/40"
-              disabled={submitting}
+              disabled={submitting || readOnly}
             />
           </div>
 
@@ -200,7 +207,7 @@ export function TacheForm(props: TacheFormProps) {
             <button
               type="submit"
               className="h-11 rounded-[10px] bg-primary px-4 text-sm font-semibold text-white outline-none transition duration-200 ease-out hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98] disabled:opacity-60"
-              disabled={submitting}
+              disabled={submitting || readOnly}
             >
               {submitting ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Enregistrer'}
             </button>
