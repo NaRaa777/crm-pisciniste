@@ -54,11 +54,11 @@ export function Sidebar(props: SidebarProps) {
       <div className="shrink-0 px-5 py-5">
         <div className="flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-[12px] bg-black-contrast/40 ring-1 ring-border">
-            <div className="h-3 w-3 rounded-full bg-primary shadow-[0_0_0_6px_rgba(45,107,255,0.18)]" />
+            <div className="h-3 w-3 rounded-full bg-primary shadow-[0_0_0_6px_rgba(91,33,182,0.18)]" />
           </div>
           <div className="text-left">
-            <div className="text-sm font-semibold tracking-tight">CRM Perso</div>
-            <div className="text-xs text-text-muted">Opérations</div>
+            <div className="text-sm font-semibold tracking-tight">Wevio</div>
+            <div className="text-xs text-text-muted">Gestion & Suivi</div>
           </div>
         </div>
       </div>
@@ -78,7 +78,7 @@ export function Sidebar(props: SidebarProps) {
                       'group flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left text-sm font-medium outline-none transition duration-200 ease-out',
                       'hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-accent/60',
                       active
-                        ? 'translate-x-[2px] border-l-[3px] border-primary bg-[rgba(45,107,255,0.18)] text-text'
+                        ? 'translate-x-[2px] border-l-[3px] border-primary bg-[rgba(91,33,182,0.18)] text-text'
                         : 'border-l-[3px] border-transparent text-text-muted hover:text-text',
                     ].join(' ')}
                   >
@@ -110,7 +110,7 @@ export function Sidebar(props: SidebarProps) {
                   onClick={props.onQuickQuote}
                   title="Devis rapide (Ctrl+D)"
                   disabled={!online}
-                  className="group flex w-full items-center gap-3 rounded-[10px] border border-primary/30 bg-primary/15 px-3 py-2 text-left text-sm font-semibold text-text outline-none transition duration-200 ease-out hover:bg-primary/25 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="group flex w-full items-center gap-3 rounded-[10px] border border-[rgba(196,181,253,0.25)] bg-primary/15 px-3 py-2 text-left text-sm font-semibold text-text shadow-[0_0_12px_2px_rgba(196,181,253,0.15)] outline-none transition duration-200 ease-out hover:bg-primary/25 hover:shadow-[0_0_14px_2px_rgba(196,181,253,0.2)] focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <FileText
                     className="h-[18px] w-[18px] shrink-0 text-primary"
@@ -125,7 +125,7 @@ export function Sidebar(props: SidebarProps) {
                   onClick={() => props.onQuickAddClient?.()}
                   title="Ajouter un client (Ctrl+P)"
                   disabled={!online}
-                  className="group flex w-full items-center gap-3 rounded-[10px] border border-accent/40 bg-gradient-to-br from-accent/10 to-primary/5 px-3 py-2 text-left text-sm font-semibold text-text outline-none transition duration-200 ease-out hover:border-accent/60 hover:from-accent/15 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="group flex w-full items-center gap-3 rounded-[10px] border border-[rgba(196,181,253,0.25)] bg-gradient-to-br from-accent/10 to-primary/5 px-3 py-2 text-left text-sm font-semibold text-text shadow-[0_0_12px_2px_rgba(196,181,253,0.15)] outline-none transition duration-200 ease-out hover:shadow-[0_0_14px_2px_rgba(196,181,253,0.2)] hover:from-accent/15 focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <UserPlus
                     className="h-[18px] w-[18px] shrink-0 text-accent"
@@ -150,7 +150,7 @@ export function Sidebar(props: SidebarProps) {
                   'group flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left text-sm font-medium outline-none transition duration-200 ease-out',
                   'hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-accent/60',
                   props.activeKey === 'settings'
-                    ? 'translate-x-[2px] border-l-[3px] border-primary bg-[rgba(45,107,255,0.18)] text-text'
+                    ? 'translate-x-[2px] border-l-[3px] border-primary bg-[rgba(91,33,182,0.18)] text-text'
                     : 'border-l-[3px] border-transparent text-text-muted hover:text-text',
                 ].join(' ')}
               >
@@ -173,7 +173,7 @@ export function Sidebar(props: SidebarProps) {
                 className={[
                   'flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left text-sm font-medium outline-none transition duration-200 ease-out hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-accent/60',
                   props.activeKey === 'help'
-                    ? 'translate-x-[2px] border-l-[3px] border-primary bg-[rgba(45,107,255,0.18)] text-text'
+                    ? 'translate-x-[2px] border-l-[3px] border-primary bg-[rgba(91,33,182,0.18)] text-text'
                     : 'border-l-[3px] border-transparent text-text-muted hover:text-text',
                 ].join(' ')}
               >
@@ -193,3 +193,4 @@ export function Sidebar(props: SidebarProps) {
     </aside>
   )
 }
+

@@ -144,7 +144,7 @@ function exportQuoteLikePdf(
 
   doc.setProperties({
     title: `${docWord} ${numero}`,
-    subject: 'Export CRM Perso',
+    subject: 'Export Wevio',
   })
 
   doc.setFont('helvetica', 'bold')
@@ -297,7 +297,7 @@ function exportQuoteLikePdf(
   doc.setFontSize(8)
   doc.setTextColor(120, 120, 120)
   doc.text(`${docWord} ${numero} · émis le ${dateEmis}`, margin, footY)
-  doc.text('CRM Perso', pageW - margin, footY, { align: 'right' })
+  doc.text('Wevio', pageW - margin, footY, { align: 'right' })
 
   const id = row.id != null ? String(row.id) : kind
   const slug = safeFileSegment(clientNom(row))
@@ -320,7 +320,7 @@ export function exportClientsListToPdf(clients: Record<string, unknown>[]): void
   if (clients.length === 0) return
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  doc.setProperties({ title: 'Liste des clients', subject: 'Export CRM Perso' })
+  doc.setProperties({ title: 'Liste des clients', subject: 'Export Wevio' })
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
@@ -329,7 +329,7 @@ export function exportClientsListToPdf(clients: Record<string, unknown>[]): void
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(90, 90, 90)
-  doc.text(`CRM Perso — ${clients.length} client${clients.length > 1 ? 's' : ''}`, 14, 23)
+  doc.text(`Wevio — ${clients.length} client${clients.length > 1 ? 's' : ''}`, 14, 23)
   doc.setTextColor(0, 0, 0)
 
   const body = clients.map((row) => [

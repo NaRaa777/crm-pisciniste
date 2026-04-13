@@ -1,4 +1,4 @@
--- Table des devis rapides (CRM Perso)
+-- Table des devis rapides (Wevio)
 -- Exécuter ce script dans le SQL Editor Supabase si la migration n'est pas appliquée automatiquement.
 
 create table if not exists public.devis (

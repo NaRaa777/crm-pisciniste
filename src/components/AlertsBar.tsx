@@ -3,7 +3,7 @@ import { formatEUR } from './format'
 
 export function AlertsBar(props: { lateTasks: number; pendingAmount: number }) {
   return (
-    <div className="rounded-[12px] border border-border bg-gradient-to-r from-danger/10 via-surface to-warning/10 p-4 shadow-[var(--shadow-card)]">
+    <div className="rounded-[12px] border border-[rgba(196,181,253,0.25)] bg-gradient-to-r from-danger/10 via-surface to-warning/10 p-4 shadow-[var(--shadow-card),0_0_12px_2px_rgba(196,181,253,0.15)]">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-3">
           <div className="mt-0.5 grid h-10 w-10 place-items-center rounded-[12px] bg-black-contrast/25 ring-1 ring-border">

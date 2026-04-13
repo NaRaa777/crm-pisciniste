@@ -1,12 +1,12 @@
 {
-  "name": "CRM Perso",
-  "short_name": "CRM Perso",
+  "name": "Wevio",
+  "short_name": "Wevio",
   "description": "Gestion clients, chantiers et facturation",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0a0f1e",
-  "theme_color": "#0a0f1e",
+  "theme_color": "#5b21b6",
   "lang": "fr",
   "orientation": "portrait-primary",
   "icons": [

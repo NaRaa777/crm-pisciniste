@@ -2,9 +2,9 @@ import { useMemo } from 'react'
 import { formatEUR } from './format'
 
 export type AnalyticsPageProps = {
-  clients: Record<string, unknown>[]
   chantiers: Record<string, unknown>[]
   facturation: Record<string, unknown>[]
+  devis: Record<string, unknown>[]
   loading: boolean
 }
 
@@ -49,6 +49,22 @@ function monthKey(iso: string): string | null {
   return iso.slice(0, 7)
 }
 
+function normalizeInvoiceStatus(raw: unknown): 'paid' | 'partial' | 'unpaid' {
+  const value = String(raw ?? '').trim().toLowerCase()
+  if (value === 'payée' || value === 'payee' || value === 'paid') return 'paid'
+  if (value === 'partielle' || value === 'partial') return 'partial'
+  return 'unpaid'
+}
+
+function isAcceptedDevis(raw: unknown): boolean {
+  const v = String(raw ?? '').trim().toLowerCase()
+  return v === 'accepte' || v === 'accepté' || v === 'signe' || v === 'signé' || v === 'accepted'
+}
+
+function monthIso(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
 const BAR_MAX_PX = 160
 
 function PaymentsBarChart(props: { data: { key: string; label: string; total: number }[] }) {
@@ -69,7 +85,7 @@ function PaymentsBarChart(props: { data: { key: string; label: string; total: nu
               {d.total > 0 ? formatEUR(d.total) : '—'}
             </div>
             <div
-              className="w-full max-w-[48px] rounded-t-[8px] bg-gradient-to-t from-primary/40 to-primary shadow-[0_0_20px_rgba(45,107,255,0.15)]"
+              className="w-full max-w-[48px] rounded-t-[8px] bg-gradient-to-t from-primary/40 to-primary shadow-[0_0_20px_rgba(91,33,182,0.15)]"
               style={{ height: h }}
             />
             <div className="text-center text-[10px] font-medium text-text-muted sm:text-xs">{d.label}</div>
@@ -82,8 +98,6 @@ function PaymentsBarChart(props: { data: { key: string; label: string; total: nu
 
 export function AnalyticsPage(props: AnalyticsPageProps) {
   const stats = useMemo(() => {
-    const totalClients = props.clients.length
-
     const chantierBuckets: Record<ChantierStatutKey, number> = {
       en_cours: 0,
       planifie: 0,
@@ -97,11 +111,22 @@ export function AnalyticsPage(props: AnalyticsPageProps) {
 
     let encaisses = 0
     let enAttente = 0
+    let collectedThisMonth = 0
+    const now = new Date()
+    const currentMonth = monthIso(now)
+    const paymentStatusCounts = { paid: 0, partial: 0, unpaid: 0 }
     for (const p of props.facturation) {
       const row = p as Record<string, unknown>
       const m = Number.isFinite(Number(row.montant_ttc)) ? Number(row.montant_ttc) : 0
-      if (mapFactureEncaisse(row.statut) === 'encaisse') encaisses += m
-      else enAttente += m
+      const status = normalizeInvoiceStatus(row.statut)
+      paymentStatusCounts[status] += 1
+      if (status === 'paid') {
+        encaisses += m
+        const paidDate = String(row.date_paiement ?? row.created_at ?? '').slice(0, 7)
+        if (paidDate === currentMonth) collectedThisMonth += m
+      } else {
+        enAttente += m
+      }
     }
 
     const monthTotals = new Map<string, number>()
@@ -114,7 +139,6 @@ export function AnalyticsPage(props: AnalyticsPageProps) {
       monthTotals.set(mk, (monthTotals.get(mk) ?? 0) + m)
     }
 
-    const now = new Date()
     const months: { key: string; label: string; total: number }[] = []
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
@@ -127,8 +151,42 @@ export function AnalyticsPage(props: AnalyticsPageProps) {
       })
     }
 
-    return { totalClients, chantierBuckets, encaisses, enAttente, months }
-  }, [props.clients, props.chantiers, props.facturation])
+    const thisMonthCa = months[months.length - 1]?.total ?? 0
+    const activeChantiers = props.chantiers.filter((c) => {
+      const s = String((c as Record<string, unknown>).statut ?? '').toLowerCase()
+      return !(s.includes('termin') || s === 'done' || s === 'completed')
+    }).length
+    const acceptedDevis = props.devis.filter((d) => isAcceptedDevis((d as Record<string, unknown>).statut)).length
+    const conversionRate = props.devis.length > 0 ? (acceptedDevis / props.devis.length) * 100 : 0
+    const totalPayments = Math.max(
+      paymentStatusCounts.paid + paymentStatusCounts.partial + paymentStatusCounts.unpaid,
+      1,
+    )
+    const paymentStatusBreakdown = {
+      paid: Math.round((paymentStatusCounts.paid / totalPayments) * 100),
+      partial: Math.round((paymentStatusCounts.partial / totalPayments) * 100),
+      unpaid: Math.round((paymentStatusCounts.unpaid / totalPayments) * 100),
+    }
+
+    return {
+      chantierBuckets,
+      encaisses,
+      enAttente,
+      months,
+      kpis: {
+        productions: props.chantiers.length,
+        activeChantiers,
+        pendingPayments: enAttente,
+        monthlyRevenue: thisMonthCa,
+      },
+      paymentSummary: {
+        collectedThisMonth,
+        pending: enAttente,
+      },
+      paymentStatusBreakdown,
+      conversionRate,
+    }
+  }, [props.chantiers, props.facturation, props.devis])
 
   if (props.loading) {
     return (
@@ -146,9 +204,25 @@ export function AnalyticsPage(props: AnalyticsPageProps) {
       </section>
 
       <section className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]">
-        <h2 className="text-sm font-semibold text-text-muted">Clients</h2>
-        <p className="mt-3 text-4xl font-bold tabular-nums tracking-tight text-text">{stats.totalClients}</p>
-        <p className="mt-1 text-sm text-text-muted">Nombre total de clients</p>
+        <h2 className="text-sm font-semibold text-text-muted">KPIs</h2>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-[12px] border border-border bg-black-contrast/15 p-4">
+            <div className="text-xs text-text-muted">Productions</div>
+            <div className="mt-2 text-2xl font-bold tabular-nums text-text">{stats.kpis.productions}</div>
+          </div>
+          <div className="rounded-[12px] border border-border bg-black-contrast/15 p-4">
+            <div className="text-xs text-text-muted">Chantiers actifs</div>
+            <div className="mt-2 text-2xl font-bold tabular-nums text-text">{stats.kpis.activeChantiers}</div>
+          </div>
+          <div className="rounded-[12px] border border-border bg-black-contrast/15 p-4">
+            <div className="text-xs text-text-muted">Paiements en attente</div>
+            <div className="mt-2 text-2xl font-bold tabular-nums text-text">{formatEUR(stats.kpis.pendingPayments)}</div>
+          </div>
+          <div className="rounded-[12px] border border-border bg-black-contrast/15 p-4">
+            <div className="text-xs text-text-muted">CA mensuel</div>
+            <div className="mt-2 text-2xl font-bold tabular-nums text-text">{formatEUR(stats.kpis.monthlyRevenue)}</div>
+          </div>
+        </div>
       </section>
 
       <section className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]">
@@ -170,16 +244,41 @@ export function AnalyticsPage(props: AnalyticsPageProps) {
         <h2 className="text-sm font-semibold text-text-muted">Facturation</h2>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="rounded-[12px] border border-success/30 bg-success/10 p-4">
-            <div className="text-xs font-semibold text-text-muted">Encaissés</div>
-            <div className="mt-2 text-2xl font-bold tabular-nums text-text">{formatEUR(stats.encaisses)}</div>
-            <div className="mt-1 text-xs text-text-muted">Montants au statut « Payée »</div>
+            <div className="text-xs font-semibold text-text-muted">Collecté ce mois</div>
+            <div className="mt-2 text-2xl font-bold tabular-nums text-text">{formatEUR(stats.paymentSummary.collectedThisMonth)}</div>
+            <div className="mt-1 text-xs text-text-muted">Somme des factures au statut « Payée » ce mois</div>
           </div>
           <div className="rounded-[12px] border border-warning/30 bg-warning/10 p-4">
             <div className="text-xs font-semibold text-text-muted">En attente</div>
-            <div className="mt-2 text-2xl font-bold tabular-nums text-text">{formatEUR(stats.enAttente)}</div>
+            <div className="mt-2 text-2xl font-bold tabular-nums text-text">{formatEUR(stats.paymentSummary.pending)}</div>
             <div className="mt-1 text-xs text-text-muted">Montants non encore payés</div>
           </div>
+          <div className="rounded-[12px] border border-border bg-black-contrast/15 p-4 sm:col-span-2">
+            <div className="text-xs font-semibold text-text-muted">Répartition statuts de paiement</div>
+            <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
+              <div className="rounded-[10px] border border-border px-3 py-2">
+                <div className="text-text-muted">Payé</div>
+                <div className="font-semibold tabular-nums">{stats.paymentStatusBreakdown.paid}%</div>
+              </div>
+              <div className="rounded-[10px] border border-border px-3 py-2">
+                <div className="text-text-muted">Partiel</div>
+                <div className="font-semibold tabular-nums">{stats.paymentStatusBreakdown.partial}%</div>
+              </div>
+              <div className="rounded-[10px] border border-border px-3 py-2">
+                <div className="text-text-muted">Impayé</div>
+                <div className="font-semibold tabular-nums">{stats.paymentStatusBreakdown.unpaid}%</div>
+              </div>
+            </div>
+          </div>
         </div>
+      </section>
+
+      <section className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]">
+        <h2 className="text-sm font-semibold text-text-muted">Conversion devis</h2>
+        <p className="mt-3 text-4xl font-bold tabular-nums tracking-tight text-text">
+          {new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(stats.conversionRate)}%
+        </p>
+        <p className="mt-1 text-sm text-text-muted">Devis acceptés / total devis</p>
       </section>
 
       <section className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]">

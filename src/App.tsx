@@ -477,9 +477,9 @@ function AuthenticatedApp() {
               />
             ) : navKey === 'analytics' ? (
               <AnalyticsPage
-                clients={clients as Record<string, unknown>[]}
                 chantiers={chantiers as Record<string, unknown>[]}
                 facturation={facturation as Record<string, unknown>[]}
+                devis={devis as Record<string, unknown>[]}
                 loading={clientsLoading || chantiersLoading || facturationLoading}
               />
             ) : navKey === 'settings' ? (
@@ -546,7 +546,14 @@ function AuthenticatedApp() {
                     </div>
                   </div>
 
-                  <AnalyticsPanel period={analyticsPeriod} onPeriodChange={setAnalyticsPeriod} loading={loading} />
+                  <AnalyticsPanel
+                    period={analyticsPeriod}
+                    onPeriodChange={setAnalyticsPeriod}
+                    chantiers={chantiers as Record<string, unknown>[]}
+                    facturation={facturation as Record<string, unknown>[]}
+                    devis={devis as Record<string, unknown>[]}
+                    loading={loading}
+                  />
                 </div>
               </>
             )}

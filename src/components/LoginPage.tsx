@@ -45,7 +45,7 @@ export function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-bg px-4 py-10 text-text">
       <div className="w-full max-w-[400px] rounded-[14px] border border-border bg-surface p-6 shadow-[var(--shadow-hover)]">
         <div className="text-center">
-          <div className="text-lg font-semibold tracking-tight">CRM Perso</div>
+          <div className="text-lg font-semibold tracking-tight">Wevio</div>
           <p className="mt-1 text-sm text-text-muted">
             {mode === 'login' ? 'Connecte-toi pour continuer.' : 'Crée un compte pour accéder au CRM.'}
           </p>

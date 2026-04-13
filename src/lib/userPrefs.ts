@@ -1,5 +1,5 @@
-const KEY_NAME = 'crm-perso-user-name'
-const KEY_EMAIL = 'crm-perso-user-email'
+const KEY_NAME = 'wevio-user-name'
+const KEY_EMAIL = 'wevio-user-email'
 
 export function loadUserPrefs(defaultName: string): { name: string; email: string } {
   if (typeof window === 'undefined') return { name: defaultName, email: '' }

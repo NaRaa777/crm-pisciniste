@@ -294,7 +294,7 @@ export function TopHeader(props: {
 
           <div className="hidden items-center gap-3 sm:flex">
             <div
-              className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-primary/35 to-accent/25 text-sm font-semibold text-text ring-1 ring-border transition duration-200 ease-out hover:shadow-[0_0_0_6px_rgba(45,107,255,0.18)]"
+              className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-primary/35 to-accent/25 text-sm font-semibold text-text ring-1 ring-border transition duration-200 ease-out hover:shadow-[0_0_0_6px_rgba(91,33,182,0.18)]"
               aria-hidden="true"
             >
               {userInitials}

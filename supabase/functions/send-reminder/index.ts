@@ -61,7 +61,7 @@ serve(async (req) => {
       })
     }
 
-    const from = Deno.env.get('RESEND_FROM')?.trim() || 'CRM Perso <onboarding@resend.dev>'
+    const from = Deno.env.get('RESEND_FROM')?.trim() || 'Wevio <onboarding@resend.dev>'
 
     const montantStr = new Intl.NumberFormat('fr-FR', {
       style: 'currency',

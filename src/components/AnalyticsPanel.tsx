@@ -1,5 +1,62 @@
 import type { AnalyticsPeriod } from './types'
-import { conversionByPeriod, deliveriesVsLate, revenueByMonth } from './mockData'
+import { useMemo } from 'react'
+
+type RevenuePoint = { month: string; revenue: number }
+type DeliveriesPoint = { month: string; delivered: number; late: number }
+
+function rowDate(row: Record<string, unknown>, key: string): Date | null {
+  const raw = String(row[key] ?? '').trim()
+  if (!raw) return null
+  const d = new Date(raw)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function rowAmount(row: Record<string, unknown>, key: string): number {
+  const n = Number(row[key])
+  return Number.isFinite(n) ? n : 0
+}
+
+function monthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+function buildLastMonths(count: number): { key: string; label: string }[] {
+  const now = new Date()
+  const out: { key: string; label: string }[] = []
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const label = new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(d)
+    out.push({
+      key: monthKey(d),
+      label: label.charAt(0).toUpperCase() + label.slice(1),
+    })
+  }
+  return out
+}
+
+function isLateChantier(raw: unknown): boolean {
+  const v = String(raw ?? '').trim().toLowerCase()
+  return v.includes('retard') || v === 'en_retard' || v === 'late'
+}
+
+function isDoneChantier(raw: unknown): boolean {
+  const v = String(raw ?? '').trim().toLowerCase()
+  return v.includes('termin') || v === 'done' || v === 'completed'
+}
+
+function isAcceptedDevis(raw: unknown): boolean {
+  const v = String(raw ?? '').trim().toLowerCase()
+  return v === 'accepte' || v === 'accepté' || v === 'signe' || v === 'signé' || v === 'accepted'
+}
+
+function startDateFromPeriod(period: AnalyticsPeriod): Date {
+  const now = new Date()
+  const days = period === '7d' ? 7 : period === '30d' ? 30 : period === '90d' ? 90 : 365
+  const start = new Date(now)
+  start.setDate(now.getDate() - days)
+  start.setHours(0, 0, 0, 0)
+  return start
+}
 
 function PeriodTabs(props: {
   value: AnalyticsPeriod
@@ -37,14 +94,14 @@ function PeriodTabs(props: {
   )
 }
 
-function LineChart() {
+function LineChart(props: { data: RevenuePoint[] }) {
   const w = 520
   const h = 170
   const pad = 18
-  const max = Math.max(...revenueByMonth.map((d) => d.revenue), 1)
+  const max = Math.max(...props.data.map((d) => d.revenue), 1)
 
-  const points = revenueByMonth.map((d, i) => {
-    const x = pad + (i * (w - pad * 2)) / (revenueByMonth.length - 1)
+  const points = props.data.map((d, i) => {
+    const x = pad + (i * (w - pad * 2)) / Math.max(props.data.length - 1, 1)
     const y = h - pad - (d.revenue / max) * (h - pad * 2)
     return { x, y, label: d.month, value: d.revenue }
   })
@@ -95,26 +152,26 @@ function LineChart() {
   )
 }
 
-function GroupedBars() {
+function GroupedBars(props: { data: DeliveriesPoint[] }) {
   const w = 520
   const h = 190
   const pad = 22
   const barW = 10
   const gap = 6
   const max = Math.max(
-    ...deliveriesVsLate.flatMap((d) => [d.delivered, d.late]),
+    ...props.data.flatMap((d) => [d.delivered, d.late]),
     1,
   )
 
   const groupW = barW * 2 + gap
-  const totalW = deliveriesVsLate.length * groupW + (deliveriesVsLate.length - 1) * 10
+  const totalW = props.data.length * groupW + Math.max(props.data.length - 1, 0) * 10
   const startX = (w - totalW) / 2
 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="h-[210px] w-full" role="img" aria-label="Chantiers livrés vs en retard">
       <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="rgba(255,255,255,0.08)" />
 
-      {deliveriesVsLate.map((d, i) => {
+      {props.data.map((d, i) => {
         const gx = startX + i * (groupW + 10)
         const yBase = h - pad
 
@@ -174,10 +231,52 @@ function GroupedBars() {
 export function AnalyticsPanel(props: {
   period: AnalyticsPeriod
   onPeriodChange: (p: AnalyticsPeriod) => void
+  chantiers: Record<string, unknown>[]
+  facturation: Record<string, unknown>[]
+  devis: Record<string, unknown>[]
   loading?: boolean
 }) {
   const loading = props.loading ?? false
-  const conversion = conversionByPeriod[props.period]
+  const { revenueByMonth, deliveriesVsLate, conversion } = useMemo(() => {
+    const months = buildLastMonths(6)
+    const monthMap = new Map(months.map((m) => [m.key, { month: m.label, revenue: 0 }]))
+
+    for (const row of props.facturation) {
+      const d = rowDate(row, 'created_at')
+      if (!d) continue
+      const key = monthKey(d)
+      const bucket = monthMap.get(key)
+      if (!bucket) continue
+      bucket.revenue += rowAmount(row, 'montant_ttc')
+    }
+
+    const revenue = months.map((m) => monthMap.get(m.key) ?? { month: m.label, revenue: 0 })
+
+    const chantierMap = new Map(months.map((m) => [m.key, { month: m.label, delivered: 0, late: 0 }]))
+    for (const row of props.chantiers) {
+      const d = rowDate(row, 'created_at')
+      if (!d) continue
+      const key = monthKey(d)
+      const bucket = chantierMap.get(key)
+      if (!bucket) continue
+      if (isDoneChantier(row.statut)) bucket.delivered += 1
+      if (isLateChantier(row.statut)) bucket.late += 1
+    }
+    const deliveries = months.map((m) => chantierMap.get(m.key) ?? { month: m.label, delivered: 0, late: 0 })
+
+    const start = startDateFromPeriod(props.period)
+    let total = 0
+    let accepted = 0
+    for (const row of props.devis) {
+      const d = rowDate(row, 'created_at')
+      if (!d || d < start) continue
+      total += 1
+      if (isAcceptedDevis(row.statut)) accepted += 1
+    }
+    const conversionPct = total > 0 ? (accepted / total) * 100 : 0
+
+    return { revenueByMonth: revenue, deliveriesVsLate: deliveries, conversion: conversionPct }
+  }, [props.facturation, props.chantiers, props.devis, props.period])
 
   return (
     <section
@@ -205,7 +304,7 @@ export function AnalyticsPanel(props: {
               {loading ? (
                 <div className="h-[190px] w-full animate-pulse rounded-[12px] bg-white/5" />
               ) : (
-                <LineChart />
+                <LineChart data={revenueByMonth} />
               )}
             </div>
           </div>
@@ -245,7 +344,7 @@ export function AnalyticsPanel(props: {
               {loading ? (
                 <div className="h-[210px] w-full animate-pulse rounded-[12px] bg-white/5" />
               ) : (
-                <GroupedBars />
+                <GroupedBars data={deliveriesVsLate} />
               )}
             </div>
           </div>

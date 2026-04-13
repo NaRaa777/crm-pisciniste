@@ -2,6 +2,8 @@
 
 @import 'tailwindcss';
 
+@config '../tailwind.config.ts';
+
 @theme {
   --font-sans: Inter, system-ui, sans-serif;
 
@@ -11,30 +13,79 @@
   --color-border: var(--border);
   --color-text: var(--text);
   --color-text-muted: var(--text-muted);
-  --color-primary: var(--primary);
+  --color-primary: #5b21b6;
   --color-accent: var(--accent);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
   --color-black-contrast: var(--black-contrast);
+
+  /* blue / sky / indigo / cyan → échelle violet (800 ≈ #5b21b6) */
+  --color-blue-50: var(--color-violet-50);
+  --color-blue-100: var(--color-violet-100);
+  --color-blue-200: var(--color-violet-200);
+  --color-blue-300: var(--color-violet-300);
+  --color-blue-400: var(--color-violet-400);
+  --color-blue-500: var(--color-violet-500);
+  --color-blue-600: var(--color-violet-600);
+  --color-blue-700: var(--color-violet-700);
+  --color-blue-800: var(--color-violet-800);
+  --color-blue-900: var(--color-violet-900);
+  --color-blue-950: var(--color-violet-950);
+
+  --color-sky-50: var(--color-violet-50);
+  --color-sky-100: var(--color-violet-100);
+  --color-sky-200: var(--color-violet-200);
+  --color-sky-300: var(--color-violet-300);
+  --color-sky-400: var(--color-violet-400);
+  --color-sky-500: var(--color-violet-500);
+  --color-sky-600: var(--color-violet-600);
+  --color-sky-700: var(--color-violet-700);
+  --color-sky-800: var(--color-violet-800);
+  --color-sky-900: var(--color-violet-900);
+  --color-sky-950: var(--color-violet-950);
+
+  --color-indigo-50: var(--color-violet-50);
+  --color-indigo-100: var(--color-violet-100);
+  --color-indigo-200: var(--color-violet-200);
+  --color-indigo-300: var(--color-violet-300);
+  --color-indigo-400: var(--color-violet-400);
+  --color-indigo-500: var(--color-violet-500);
+  --color-indigo-600: var(--color-violet-600);
+  --color-indigo-700: var(--color-violet-700);
+  --color-indigo-800: var(--color-violet-800);
+  --color-indigo-900: var(--color-violet-900);
+  --color-indigo-950: var(--color-violet-950);
+
+  --color-cyan-50: var(--color-violet-50);
+  --color-cyan-100: var(--color-violet-100);
+  --color-cyan-200: var(--color-violet-200);
+  --color-cyan-300: var(--color-violet-300);
+  --color-cyan-400: var(--color-violet-400);
+  --color-cyan-500: var(--color-violet-500);
+  --color-cyan-600: var(--color-violet-600);
+  --color-cyan-700: var(--color-violet-700);
+  --color-cyan-800: var(--color-violet-800);
+  --color-cyan-900: var(--color-violet-900);
+  --color-cyan-950: var(--color-violet-950);
 }
 
 /* Dark is default */
 :root {
   color-scheme: dark;
 
-  --bg: #0a0f1e;
-  --surface: #10182b;
-  --surface-2: #0d1424;
-  --border: #1e2a44;
+  --bg: #0a0514;
+  --surface: #130920;
+  --surface-2: #0f0718;
+  --border: #2d1b4e;
   --text: #e6ecff;
   --text-muted: #9aa8c7;
-  --primary: #2d6bff;
-  --accent: #37c8ff;
+  --primary: #5b21b6;
+  --accent: #c4b5fd;
   --success: #17c964;
   --warning: #f5a524;
   --danger: #f31260;
-  --black-contrast: #05070d;
+  --black-contrast: #050309;
 
   --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.28);
   --shadow-hover: 0 10px 30px rgba(0, 0, 0, 0.34);
@@ -43,14 +94,14 @@
 html[data-theme='light'] {
   color-scheme: light;
 
-  --bg: #f6f8ff;
+  --bg: #faf5ff;
   --surface: #ffffff;
-  --surface-2: #eef2ff;
-  --border: #d7def0;
+  --surface-2: #f3e8ff;
+  --border: #e9d5ff;
   --text: #0b1224;
   --text-muted: #4b5b7a;
-  --primary: #2d6bff;
-  --accent: #0ea5e9;
+  --primary: #5b21b6;
+  --accent: #c4b5fd;
   --success: #16a34a;
   --warning: #d97706;
   --danger: #e11d48;
@@ -93,7 +144,7 @@ body {
   width: 100%;
   padding: 10px 20px;
   border-radius: 7px;
-  border: 1px solid rgb(61, 106, 255);
+  border: 1px solid rgb(91, 33, 182);
   font-size: 14px;
   text-transform: uppercase;
   font-weight: 600;
@@ -109,7 +160,7 @@ body {
 }
 
 .login-submit-btn:focus-visible {
-  outline: 2px solid rgb(61, 106, 255);
+  outline: 2px solid rgb(91, 33, 182);
   outline-offset: 2px;
 }
 
@@ -119,8 +170,8 @@ body {
 }
 
 .login-submit-btn:hover:not(:disabled) {
-  background: rgb(61, 106, 255);
-  box-shadow: 0 0 30px 5px rgba(0, 142, 236, 0.815);
+  background: rgb(91, 33, 182);
+  box-shadow: 0 0 30px 5px rgba(196, 181, 253, 0.5);
   -webkit-transition: all 0.2s ease-out;
   -moz-transition: all 0.2s ease-out;
   transition: all 0.2s ease-out;

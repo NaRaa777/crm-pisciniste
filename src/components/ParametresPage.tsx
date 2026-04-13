@@ -111,7 +111,7 @@ export function ParametresPage(props: ParametresPageProps) {
           <button
             type="submit"
             disabled={readOnly}
-            className="h-11 rounded-[10px] bg-primary px-5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(45,107,255,0.25)] outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-11 rounded-[10px] bg-primary px-5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(91,33,182,0.25)] outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Enregistrer le profil
           </button>
