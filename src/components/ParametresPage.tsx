@@ -29,13 +29,6 @@ export function ParametresPage(props: ParametresPageProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-text">Paramètres</h1>
-        <p className="mt-1 text-sm text-text-muted">
-          Profil affiché dans l’en-tête et préférences d’affichage.
-        </p>
-      </div>
-
       <form
         onSubmit={handleSave}
         className="rounded-[12px] border border-border bg-surface p-6 shadow-[var(--shadow-card)]"

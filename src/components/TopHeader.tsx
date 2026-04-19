@@ -1,66 +1,27 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { Bell, Menu, Moon, Search, Sun } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Bell, Menu, Moon, Sun } from 'lucide-react'
 import { fetchHeaderNotifications, type HeaderNotification } from '../lib/headerNotifications'
-import { runGlobalSearch, type GlobalSearchResult } from '../lib/globalSearch'
+import { getPageHeader } from '../lib/pageHeaderMeta'
 import { initialsFromEmail } from '../lib/userPrefs'
 import { supabase } from '../lib/supabase'
 import type { ThemeMode } from './types'
 
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const t = window.setTimeout(() => setDebounced(value), delayMs)
-    return () => window.clearTimeout(t)
-  }, [value, delayMs])
-  return debounced
-}
-
 export function TopHeader(props: {
+  navKey: string
   theme: ThemeMode
   onToggleTheme: () => void
   onOpenMobileNav?: () => void
-  onSearchNavigate?: (navKey: 'clients' | 'sites' | 'facturation') => void
 }) {
   const [userEmail, setUserEmail] = useState<string>('')
   const [userInitials, setUserInitials] = useState<string>('—')
 
-  const searchId = useId()
-  const listboxId = `${searchId}-listbox`
-  const wrapRef = useRef<HTMLDivElement>(null)
   const notifWrapRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const [notifications, setNotifications] = useState<HeaderNotification[]>([])
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
 
-  const [query, setQuery] = useState('')
-  const debouncedQuery = useDebouncedValue(query, 280)
-  const [results, setResults] = useState<GlobalSearchResult[]>([])
-  const [loading, setLoading] = useState(false)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-
-  useEffect(() => {
-    const q = debouncedQuery.trim()
-    if (q.length < 1) {
-      queueMicrotask(() => {
-        setResults([])
-        setLoading(false)
-      })
-      return
-    }
-    let cancelled = false
-    queueMicrotask(() => setLoading(true))
-    void runGlobalSearch(q).then((rows) => {
-      if (!cancelled) {
-        setResults(rows)
-        setLoading(false)
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [debouncedQuery])
+  const { title, subtitle } = getPageHeader(props.navKey)
 
   const loadNotifications = useCallback(() => {
     setNotifLoading(true)
@@ -99,7 +60,6 @@ export function TopHeader(props: {
   useEffect(() => {
     function onDocDown(e: MouseEvent) {
       const t = e.target as Node
-      if (!wrapRef.current?.contains(t)) setDropdownOpen(false)
       if (!notifWrapRef.current?.contains(t)) setNotifOpen(false)
     }
     document.addEventListener('mousedown', onDocDown)
@@ -114,107 +74,32 @@ export function TopHeader(props: {
     return () => document.removeEventListener('keydown', onKey)
   }, [])
 
-  const onSearchNavigate = props.onSearchNavigate
-  const handleSelect = useCallback(
-    (r: GlobalSearchResult) => {
-      onSearchNavigate?.(r.navKey)
-      setQuery('')
-      setResults([])
-      setDropdownOpen(false)
-      inputRef.current?.blur()
-    },
-    [onSearchNavigate],
-  )
-
-  const showPanel =
-    Boolean(props.onSearchNavigate) && dropdownOpen && query.trim().length >= 1
-
   return (
-    <header className="sticky top-0 z-30 overflow-visible border-b border-border bg-surface/70 backdrop-blur-md">
-      <h1 className="sr-only">Tableau de bord CRM</h1>
-      <div className="mx-auto flex h-[72px] w-full max-w-[1440px] items-center gap-4 overflow-visible px-6">
-        <div className="flex min-w-0 items-center gap-3 lg:hidden">
+    <header className="sticky top-0 z-30 overflow-visible border-b border-[rgba(59,130,246,0.15)] bg-transparent backdrop-blur-md">
+      <div className="mx-auto flex h-[81px] w-full max-w-[1440px] items-center gap-4 overflow-visible px-6">
+        <div className="flex min-w-0 shrink-0 items-center gap-3 lg:hidden">
           <button
             type="button"
             onClick={props.onOpenMobileNav}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-[10px] border border-border bg-surface text-text outline-none transition duration-200 ease-out hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-accent/60"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-[10px] border border-[rgba(59,130,246,0.15)] bg-black-contrast/20 text-text outline-none transition duration-200 ease-out hover:bg-black/25 focus-visible:ring-2 focus-visible:ring-accent/60"
             aria-label="Ouvrir le menu"
           >
             <Menu className="h-5 w-5" strokeWidth={1.75} />
           </button>
         </div>
 
-        <div className="relative hidden min-w-0 flex-1 md:block" ref={wrapRef}>
-          <label className="relative mx-auto block w-full max-w-[520px]">
-            <span className="sr-only">Recherche globale</span>
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-text-muted"
-              strokeWidth={1.75}
-            />
-            <input
-              ref={inputRef}
-              id={searchId}
-              role="combobox"
-              aria-expanded={Boolean(showPanel)}
-              aria-controls={showPanel ? listboxId : undefined}
-              aria-autocomplete="list"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value)
-                setDropdownOpen(true)
-              }}
-              onFocus={() => {
-                if (query.trim().length >= 1) setDropdownOpen(true)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  setDropdownOpen(false)
-                  inputRef.current?.blur()
-                }
-              }}
-              className="h-11 w-full rounded-[10px] border border-border bg-black-contrast/25 px-10 text-sm text-text outline-none ring-primary/30 placeholder:text-text-muted focus:border-primary/40 focus:ring-2"
-              placeholder="Rechercher un client, un chantier, une facture…"
-              autoComplete="off"
-            />
-          </label>
-
-          {showPanel ? (
-            <div
-              id={listboxId}
-              role="listbox"
-              aria-label="Résultats de recherche"
-              className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-[min(60vh,320px)] overflow-auto rounded-[12px] border border-border bg-surface py-1 shadow-[var(--shadow-hover)]"
-            >
-              {loading ? (
-                <div className="px-3 py-3 text-sm text-text-muted">Recherche…</div>
-              ) : results.length === 0 ? (
-                <div className="px-3 py-3 text-sm text-text-muted">Aucun résultat</div>
-              ) : (
-                <ul className="py-1">
-                  {results.map((r) => (
-                    <li key={`${r.type}-${r.id}`} role="option">
-                      <button
-                        type="button"
-                        className="flex w-full items-baseline gap-2 px-3 py-2.5 text-left text-sm outline-none transition hover:bg-white/5 focus-visible:bg-white/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => handleSelect(r)}
-                      >
-                        <span className="shrink-0 font-semibold text-text-muted">{r.type}</span>
-                        <span className="min-w-0 flex-1 truncate font-medium text-text">{r.label}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ) : null}
+        <div className="flex min-w-0 flex-1 flex-col justify-center py-2 pr-2">
+          <h1 className="font-['Syne',sans-serif] text-lg font-bold leading-tight tracking-tight text-white md:text-xl">
+            {title}
+          </h1>
+          <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-slate-400 md:text-sm">{subtitle}</p>
         </div>
 
-        <div className="ml-auto flex items-center gap-2 overflow-visible sm:gap-3">
+        <div className="ml-auto flex shrink-0 items-center gap-2 overflow-visible sm:gap-3">
           <button
             type="button"
             onClick={props.onToggleTheme}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-[10px] border border-border bg-surface text-text outline-none transition duration-200 ease-out hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-accent/60"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-[10px] border border-[rgba(59,130,246,0.15)] bg-black-contrast/20 text-text outline-none transition duration-200 ease-out hover:bg-black/25 focus-visible:ring-2 focus-visible:ring-accent/60"
             aria-label={
               props.theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'
             }
@@ -236,7 +121,7 @@ export function TopHeader(props: {
                 setNotifOpen((o) => !o)
                 loadNotifications()
               }}
-              className="relative inline-flex h-11 w-11 items-center justify-center rounded-[10px] border border-border bg-surface text-text outline-none transition duration-200 ease-out hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-accent/60"
+              className="relative inline-flex h-11 w-11 items-center justify-center rounded-[10px] border border-[rgba(59,130,246,0.15)] bg-black-contrast/20 text-text outline-none transition duration-200 ease-out hover:bg-black/25 focus-visible:ring-2 focus-visible:ring-accent/60"
               aria-label="Notifications"
               aria-expanded={notifOpen}
               aria-haspopup="dialog"
@@ -251,10 +136,10 @@ export function TopHeader(props: {
 
             {notifOpen ? (
               <div
-                className="overflow-hidden rounded-[12px] border border-border bg-surface shadow-[var(--shadow-hover)]"
+                className="overflow-hidden rounded-[12px] border border-[rgba(59,130,246,0.15)] bg-[#0e1e35] shadow-[var(--shadow-hover)]"
                 style={{
                   position: 'fixed',
-                  top: '60px',
+                  top: '88px',
                   right: '8px',
                   left: 'auto',
                   width: 'min(320px, calc(100vw - 16px))',
@@ -263,7 +148,7 @@ export function TopHeader(props: {
                 role="dialog"
                 aria-label="Alertes"
               >
-                <div className="border-b border-border px-3 py-2.5">
+                <div className="border-b border-[rgba(59,130,246,0.15)] px-3 py-2.5">
                   <div className="text-sm font-semibold text-text">Notifications</div>
                   <div className="text-xs text-text-muted">Chantiers, facturation et tâches à traiter</div>
                 </div>
@@ -275,7 +160,7 @@ export function TopHeader(props: {
                   ) : (
                     <ul className="py-1">
                       {notifications.map((n) => (
-                        <li key={n.id} className="border-b border-border/60 last:border-b-0">
+                        <li key={n.id} className="border-b border-[rgba(59,130,246,0.1)] last:border-b-0">
                           <div className="px-3 py-2.5">
                             <div className="text-xs font-semibold uppercase tracking-wide text-danger">
                               {n.typeLabel}
@@ -292,22 +177,18 @@ export function TopHeader(props: {
             ) : null}
           </div>
 
-          <div className="hidden items-center gap-3 sm:flex">
+          <div className="hidden sm:flex">
             <div
-              className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-primary/35 to-accent/25 text-sm font-semibold text-text ring-1 ring-border transition duration-200 ease-out hover:shadow-[0_0_0_6px_rgba(91,33,182,0.18)]"
+              className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-primary/35 to-accent/25 text-sm font-semibold text-text ring-1 ring-[rgba(59,130,246,0.15)] transition duration-200 ease-out hover:shadow-[0_0_0_6px_rgba(91,33,182,0.18)]"
               aria-hidden="true"
             >
               {userInitials}
-            </div>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold">{userEmail || '…'}</div>
-              <div className="truncate text-xs text-text-muted">Connecté</div>
             </div>
           </div>
 
           <div className="sm:hidden">
             <div
-              className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-primary/35 to-accent/25 text-sm font-semibold text-text ring-1 ring-border"
+              className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-primary/35 to-accent/25 text-sm font-semibold text-text ring-1 ring-[rgba(59,130,246,0.15)]"
               aria-label={userEmail || 'Compte'}
               title={userEmail || undefined}
             >

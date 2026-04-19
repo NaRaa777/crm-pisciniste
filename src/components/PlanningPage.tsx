@@ -148,11 +148,7 @@ export function PlanningPage(props: PlanningPageProps) {
       className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]"
     >
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-[20px] font-semibold tracking-tight">Planning</h1>
-            <p className="mt-1 text-sm text-text-muted">Tâches liées aux chantiers (table Supabase).</p>
-          </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           <button
             type="button"
             onClick={props.onAddTache}

@@ -5,7 +5,7 @@ export type GlobalSearchResult = {
   label: string
   type: 'Client' | 'Chantier' | 'Facture'
   /** Clé de navigation App */
-  navKey: 'clients' | 'sites' | 'facturation'
+  navKey: 'prospects' | 'sites' | 'paiements'
 }
 
 /** Motif ILIKE : '%' + query (échappée pour LIKE) + '%' */
@@ -84,7 +84,7 @@ export async function runGlobalSearch(raw: string): Promise<GlobalSearchResult[]
       id: row.id,
       label: ent ? `${nom} — ${ent}` : nom,
       type: 'Client',
-      navKey: 'clients',
+      navKey: 'prospects',
     })
   }
 
@@ -112,7 +112,7 @@ export async function runGlobalSearch(raw: string): Promise<GlobalSearchResult[]
       id,
       label: extra ? `${amountLabel} — ${extra}` : amountLabel,
       type: 'Facture',
-      navKey: 'facturation',
+      navKey: 'paiements',
     })
   }
 

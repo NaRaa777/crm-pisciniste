@@ -42,11 +42,35 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-bg px-4 py-10 text-text">
-      <div className="w-full max-w-[400px] rounded-[14px] border border-border bg-surface p-6 shadow-[var(--shadow-hover)]">
-        <div className="text-center">
-          <div className="text-lg font-semibold tracking-tight">Wevio</div>
-          <p className="mt-1 text-sm text-text-muted">
+    <div className="relative z-10 flex min-h-[100dvh] w-full flex-col items-center justify-center bg-transparent px-4 py-10 text-text">
+      <div className="w-full max-w-[400px] overflow-hidden rounded-[16px] border border-[rgba(59,130,246,0.22)] bg-[#0e1e35]/72 shadow-[0_12px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl ring-1 ring-white/[0.06]">
+        <div
+          className="h-1 w-full bg-gradient-to-r from-[#1e40af] via-[#06b6d4] to-[#3b82f6] opacity-90"
+          aria-hidden
+        />
+        <div className="p-6">
+        <div className="flex flex-col items-center text-center">
+          <div
+            className="mb-3 grid h-11 w-11 place-items-center rounded-[12px] ring-1 ring-sky-500/30 shadow-[0_0_18px_rgba(56,189,248,0.25)]"
+            style={{
+              background: 'linear-gradient(145deg, #1e40af 0%, #0e7490 50%, #0891b2 100%)',
+            }}
+            aria-hidden
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 2C12 2 5 10 5 15a7 7 0 0 0 14 0c0-5-7-13-7-13z"
+                fill="white"
+                opacity="0.92"
+              />
+              <path
+                d="M12 8C12 8 8 13 8 16a4 4 0 0 0 8 0c0-3-4-8-4-8z"
+                fill="rgba(6,182,212,0.45)"
+              />
+            </svg>
+          </div>
+          <div className="font-['Syne',sans-serif] text-xl font-bold tracking-tight text-white">Wevio</div>
+          <p className="mt-1.5 text-sm leading-relaxed text-slate-400">
             {mode === 'login' ? 'Connecte-toi pour continuer.' : 'Crée un compte pour accéder au CRM.'}
           </p>
         </div>
@@ -133,6 +157,7 @@ export function LoginPage() {
             </>
           )}
         </p>
+        </div>
       </div>
     </div>
   )

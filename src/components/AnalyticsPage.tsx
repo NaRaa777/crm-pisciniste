@@ -199,11 +199,6 @@ export function AnalyticsPage(props: AnalyticsPageProps) {
   return (
     <div className="space-y-5">
       <section className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]">
-        <h1 className="text-[20px] font-semibold tracking-tight">Analytics</h1>
-        <p className="mt-1 text-sm text-text-muted">Indicateurs calculés à partir des tables Supabase (clients, chantiers, facturation).</p>
-      </section>
-
-      <section className="rounded-[12px] border border-border bg-surface p-5 shadow-[var(--shadow-card)]">
         <h2 className="text-sm font-semibold text-text-muted">KPIs</h2>
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-[12px] border border-border bg-black-contrast/15 p-4">

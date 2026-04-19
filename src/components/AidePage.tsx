@@ -194,13 +194,6 @@ export function AidePage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-text">Aide & support</h1>
-        <p className="mt-1 text-sm text-text-muted">
-          FAQ complète pour utiliser l’application au quotidien, même si vous n’êtes pas à l’aise avec l’informatique.
-        </p>
-      </div>
-
       <section
         className="rounded-[12px] border border-border bg-surface p-6 shadow-[var(--shadow-card)]"
         aria-labelledby="faq-heading"
